@@ -128,6 +128,8 @@ test("original result rendering is preserved and gets its own previous component
   const result = { content: [{ type: "text" as const, text: "model output" }], details: { calls: [], [DETAILS_KEY]: { version: 1, changes: [change("a")] } } };
   type Context = Parameters<typeof render>[3];
   const context: Context = {
+    // Pi 1.1+ supplies these fields. Spreading also supports the older SDK.
+    ...{ durationMs: undefined, outputPad: 0 },
     args: { code: "..." }, toolCallId: "root", invalidate() {}, lastComponent: undefined,
     state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: false,
     expanded: false, showImages: true, isError: false,
@@ -154,6 +156,7 @@ test("live partial results redraw and final persisted details work after cleanup
   capture.start("root", "codemode");
   capture.start("root/1", "edit", "root");
   const context: Parameters<typeof render>[3] = {
+    ...{ durationMs: undefined, outputPad: 0 },
     args: {}, toolCallId: "root", invalidate() { invalidated++; }, lastComponent: undefined,
     state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
     expanded: false, showImages: true, isError: false,

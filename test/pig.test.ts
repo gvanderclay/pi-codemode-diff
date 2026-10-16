@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import type { EntryRenderer, ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
+import type { EntryRenderer, ExtensionAPI, Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { Capture } from "../src/capture.ts";
 import { DETAILS_KEY, readChanges, type Change } from "../src/changes.ts";
@@ -28,6 +28,10 @@ function harness() {
   const entries: Array<{ customType: string; data: unknown }> = [];
   let renderer: EntryRenderer | undefined;
   const publish = registerPiGDisplay({
+    registerTool(tool: ToolDefinition) {
+      assert.equal(tool.name, "edit");
+      assert.equal(tool.defaultActive, false);
+    },
     registerEntryRenderer(type: string, render: EntryRenderer) {
       assert.equal(type, PIG_ENTRY_TYPE);
       renderer = render;

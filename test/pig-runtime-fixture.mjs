@@ -39,6 +39,9 @@ await runWithRuntime(runtime, async () => {
   await start("root", "codemode");
   await start("root/1", "write", "root");
   const write = runtime.tools.get("write");
+  const edit = runtime.tools.get("edit");
+  assert.equal(write.defaultActive, false);
+  assert.equal(edit.defaultActive, false);
   const input = { path: "new.txt", content: "before\n" };
   const written = await write.execute("root/1", input, undefined, undefined, { cwd });
   assert.equal(await readFile(join(cwd, "new.txt"), "utf8"), input.content);
@@ -54,6 +57,20 @@ await runWithRuntime(runtime, async () => {
   assert.equal(appended.length, 0, "Display is published only at completion");
   await emit({ type: "tool_execution_end", toolCallId: "root", toolName: "codemode", result, isError: true });
   await emit({ type: "agent_end" });
+  // Both real SDK definitions must use one runtime's mutation queue. A separate
+  // host edit executor cannot provide these dependent-call guarantees.
+  for (let round = 0; round < 20; round++) {
+    const executeWrite = (content) => write.execute("queue-write", {path:"queue.txt",content}, undefined, undefined, {cwd});
+    const executeEdit = (oldText) => edit.execute("queue-edit", {path:"queue.txt",edits:[{oldText,newText:"edited"}]}, undefined, undefined, {cwd});
+    await executeWrite("seed");
+    const dependent = await Promise.allSettled([executeWrite("base"),executeEdit("base")]);
+    assert.deepEqual(dependent.map(x=>x.status),["fulfilled","fulfilled"]);
+    assert.equal(await readFile(join(cwd,"queue.txt"),"utf8"),"edited");
+    await executeWrite("seed");
+    const obsolete = await Promise.allSettled([executeWrite("base"),executeEdit("seed")]);
+    assert.deepEqual(obsolete.map(x=>x.status),["fulfilled","rejected"]);
+    assert.equal(await readFile(join(cwd,"queue.txt"),"utf8"),"base");
+  }
   assert.equal(appended.length, 1);
   const saved = JSON.parse(JSON.stringify(appended[0]));
   assert.equal(saved.data.piCodemodeDiff.changes[0].toolReportedError, true);

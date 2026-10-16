@@ -69,6 +69,10 @@ The package does not bundle duplicate copies of host-provided modules. Pi instal
 
 ## PiG compatibility
 
+A native Go implementation is available in [`native/pig/`](native/pig/README.md). Its single factory supports both Go source subprocess loading and fused Piglet Binaries. See that module's README for setup, validation, and the file mutation queue boundary. The npm package continues to contain the TypeScript implementation only.
+
+On PiG, the extension executes both `write` and `edit` through one shared per-file queue. The TypeScript path reuses both SDK tool definitions; the Go source and fused paths share one native queue. This fixes concurrent dependent edits failing or being overwritten by queued writes. Actual Pi/PiG parity tests pass across all three PiG paths; see the [cross-host parity report](native/pig/PARITY.md). Pi continues to use its existing execution path. Load one implementation, and avoid another extension overriding either tool independently.
+
 PiG's Node subprocess renderer API has a documented limitation ([D89](https://github.com/MichaelKinsy/PiG/blob/main/docs/parity/DIVERGENCES.md)): `next()` returns a marker, not callable render functions. This extension therefore does **not** replace or wrap PiG's codemode renderer.
 
 Only when running inside PiG's Node extension runtime:
@@ -90,6 +94,8 @@ pig install /path/to/pi-codemode-diff
 ```
 
 ### Local executable verification
+
+Latest-release check (2026-10-16): **Pi 1.3.0** and **PiG 0.4.1+1.0.3** run this extension in the tested scenarios, including Go source and fused delivery. Type checking and 89 tests pass against both the existing SDK and 1.3.0. Released PiG still ignores `tool_call` input rewrites made by other extensions, even with this extension disabled; its main branch contains the host fix. The strict parity gate retains those two release differences. See the [latest compatibility report](native/pig/COMPATIBILITY.md).
 
 The PiG compatibility path was also checked with installed **Pi 1.0.3** and **PiG 0.4.1+1.0.3** executables, not only a mocked renderer. Isolated offline sessions with a scripted local provider compared pre-change and updated extension behavior: direct write, nested create/edit/overwrite, long diffs, read-only calls, and script failure after a successful write. Model-facing results (excluding elapsed time), success/error status, and written bytes matched. Only PiG produced the additional custom entries.
 

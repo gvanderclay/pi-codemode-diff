@@ -1,0 +1,44 @@
+{
+  "scenarios_passed": [
+    "direct",
+    "nested",
+    "error_after_write",
+    "failed_edit",
+    "read_only",
+    "long",
+    "oversized",
+    "binary",
+    "invalid_utf8",
+    "normalization",
+    "empty",
+    "parallel_parents",
+    "parallel_aliases",
+    "blocked",
+    "late_error",
+    "helper"
+  ],
+  "modes": [
+    "typescript",
+    "source",
+    "fused"
+  ],
+  "full_scenario_suite": false,
+  "known_host_failure": {
+    "scenario": "rewritten_path",
+    "reason": "PiG release v0.4.1 does not apply tool_call input mutations; source main fixes this in 65b7c13e. Strict full-suite evidence retained."
+  },
+  "resume": [
+    "source",
+    "fused"
+  ],
+  "tui_reload_expansion_resume": [
+    "source",
+    "fused"
+  ],
+  "node_absent": [
+    "source",
+    "fused"
+  ],
+  "fused_without_node_or_go": true,
+  "model": "local scripted OpenAI-compatible endpoint"
+}

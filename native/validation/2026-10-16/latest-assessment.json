@@ -1,0 +1,55 @@
+{
+  "checked_at": "2026-10-16",
+  "pi": "1.3.0",
+  "pig": "0.4.1+1.0.3",
+  "sdk": "0.4.1",
+  "pig_release_commit": "3ee745c8cda3c1a9a8d71112c140790c4d64d78d",
+  "fused_source_commit": "3ee745c8cda3c1a9a8d71112c140790c4d64d78d",
+  "pig_main_commit": "e63c61c338e2aaf0d130513db2c2e63fe2e7dafd",
+  "pi_git_tag": "71023aec1546d6d677a65669c5665c0927ce0dd0",
+  "strict_full_parity": false,
+  "extension_preserves_host_behavior": true,
+  "pig_implementations_equal": true,
+  "queue_parity": true,
+  "cross_host_differing_scenarios": [
+    "edit_rewritten",
+    "rewritten_path"
+  ],
+  "ordinary_invocations": 300,
+  "sdk_validation": {
+    "latest": {
+      "coding_agent": "1.3.0",
+      "pi_ai": "1.3.0",
+      "pi_tui": "1.3.0",
+      "typecheck": true,
+      "tests_passed": 89,
+      "tests_failed": 0,
+      "tests_skipped": 0
+    },
+    "existing": {
+      "coding_agent": "1.0.2",
+      "typecheck": true,
+      "tests_passed": 89,
+      "tests_failed": 0,
+      "tests_skipped": 0
+    },
+    "fix": "Add durationMs and outputPad to renderer test contexts using a spread for older SDK compatibility.",
+    "production_changes_required": false
+  },
+  "oracles_identical_with_pi_1_3_0": {
+    "typescript.json": "964a3c8f29dae14ea7c35f6691d3e0ada41e5dbdeb5050c731fc9f0301a7132d",
+    "edits.json": "17a3db99a9d9740b9bd6ae18d27a20fbf6dd86125aab40a512d575de19fb4a6a"
+  },
+  "tui_modes": [
+    "pi-typescript",
+    "pig-typescript",
+    "pig-source",
+    "pig-fused"
+  ],
+  "node_free": [
+    "pig-source",
+    "pig-fused"
+  ],
+  "fused_without_node_or_go": true,
+  "notes": "Latest stable PiG ignores tool_call input rewrites even without this extension. Strict gate exits 1; no comparisons were relaxed. Two targeted hook cases pass on main with Pi 1.3.0."
+}

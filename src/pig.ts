@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { createEditToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Container, Text } from "@earendil-works/pi-tui";
 import type { Capture } from "./capture.ts";
 import { asRecord, DETAILS_KEY, readChanges } from "./changes.ts";
@@ -12,6 +12,11 @@ export const PIG_ENTRY_TYPE = "pi-codemode-diff:pig";
  * Publishing at tool_execution_end includes final nested tool error statuses.
  */
 export function registerPiGDisplay(pi: ExtensionAPI, capture: Capture): (toolCallId: string) => void {
+  // PiG's host edit queue cannot coordinate with a Node write override. Execute
+  // both definitions in this runtime so their SDK mutation queue is shared.
+  // Preserve the complete native definition, including argument preparation,
+  // cancellation checks, result metadata, and renderers.
+  pi.registerTool({ ...createEditToolDefinition(process.cwd()), defaultActive: false });
   pi.registerEntryRenderer(PIG_ENTRY_TYPE, (entry, options, theme) => {
     const data = asRecord(entry.data);
     const changes = readChanges(data);

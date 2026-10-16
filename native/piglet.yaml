@@ -1,0 +1,10 @@
+name: codemode-diff
+description: "Native Go codemode file diff display."
+build:
+  extensionRealization: fused
+extensions:
+  - name: pig
+    origins: [local:./pig]
+discovery:
+  extensions: []
+  skills: []

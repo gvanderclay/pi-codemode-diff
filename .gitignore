@@ -20,3 +20,9 @@ auth.json
 
 # Local agent configuration and session data
 .pi/
+
+# Native Go builds and Python verification cache
+.pig/
+native/bin/
+__pycache__/
+*.pprof

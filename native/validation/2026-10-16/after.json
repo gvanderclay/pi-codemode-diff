@@ -1,0 +1,1084 @@
+{
+  "versions": {
+    "pi": "1.0.3",
+    "pig": "0.4.1+1.0.3",
+    "fused": "0.4.1+1.0.3"
+  },
+  "cases": [
+    {
+      "case": "direct",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "direct",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "nested",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "nested",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "failed_script",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "failed_script",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "failed_edit",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "failed_edit",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "read_only",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "read_only",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "long",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "long",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "oversized",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "oversized",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "binary",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "binary",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "invalid_utf8",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "invalid_utf8",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "normalization",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "normalization",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "empty",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "empty",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "parallel_parents",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "parallel_parents",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "parallel_writes",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "parallel_writes",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "blocked",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "blocked",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "late_error",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "late_error",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "helper",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "helper",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "rewritten_path",
+      "iteration": 0,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    },
+    {
+      "case": "rewritten_path",
+      "iteration": 1,
+      "cross_host": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "extension_effect": {
+        "pi-typescript": [],
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      },
+      "native_vs_pigts": {
+        "pig-typescript": [],
+        "pig-source": [],
+        "pig-fused": []
+      }
+    }
+  ],
+  "queues": {
+    "sequential": {
+      "pi-control": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pi-typescript": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-control": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-typescript": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-source": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-fused": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ]
+    },
+    "dependent_parallel": {
+      "pi-control": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pi-typescript": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-control": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-typescript": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-source": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-fused": [
+        {
+          "count": 20,
+          "final": "edited",
+          "statuses": [
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ]
+    },
+    "overwrite_parallel": {
+      "pi-control": [
+        {
+          "count": 20,
+          "final": "base",
+          "statuses": [
+            "fulfilled",
+            "rejected"
+          ]
+        }
+      ],
+      "pi-typescript": [
+        {
+          "count": 20,
+          "final": "base",
+          "statuses": [
+            "fulfilled",
+            "rejected"
+          ]
+        }
+      ],
+      "pig-control": [
+        {
+          "count": 20,
+          "final": "base",
+          "statuses": [
+            "fulfilled",
+            "rejected"
+          ]
+        }
+      ],
+      "pig-typescript": [
+        {
+          "count": 20,
+          "final": "base",
+          "statuses": [
+            "fulfilled",
+            "rejected"
+          ]
+        }
+      ],
+      "pig-source": [
+        {
+          "count": 20,
+          "final": "base",
+          "statuses": [
+            "fulfilled",
+            "rejected"
+          ]
+        }
+      ],
+      "pig-fused": [
+        {
+          "count": 20,
+          "final": "base",
+          "statuses": [
+            "fulfilled",
+            "rejected"
+          ]
+        }
+      ]
+    },
+    "queued_batch": {
+      "pi-control": [
+        {
+          "count": 3,
+          "final": "edited xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "statuses": [
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pi-typescript": [
+        {
+          "count": 3,
+          "final": "edited xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "statuses": [
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-control": [
+        {
+          "count": 3,
+          "final": "edited xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "statuses": [
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-typescript": [
+        {
+          "count": 3,
+          "final": "edited xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "statuses": [
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-source": [
+        {
+          "count": 3,
+          "final": "edited xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "statuses": [
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ],
+      "pig-fused": [
+        {
+          "count": 3,
+          "final": "edited xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "statuses": [
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled",
+            "fulfilled"
+          ]
+        }
+      ]
+    }
+  },
+  "scope": {
+    "scenarios": [
+      "direct",
+      "nested",
+      "failed_script",
+      "failed_edit",
+      "read_only",
+      "long",
+      "oversized",
+      "binary",
+      "invalid_utf8",
+      "normalization",
+      "empty",
+      "parallel_parents",
+      "parallel_writes",
+      "blocked",
+      "late_error",
+      "helper",
+      "rewritten_path"
+    ],
+    "repetitions": 2,
+    "ordinary_invocations": 204,
+    "queue_rounds": 20,
+    "batch_rounds": 3,
+    "external_model": false,
+    "node": "v24.19.0"
+  },
+  "executables": {
+    "pi_cli": {
+      "path": "/workspace/.tools/pi-cli-1.0.3/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
+      "sha256": "e79626f2dd6f94aa45d30f3fa63cd84319a6eefcd150b353cfaf274366926774"
+    },
+    "pig": {
+      "path": "/workspace/scratch/pig-e63c61c",
+      "sha256": "cb8297ad6ce0ca658eff1a3227eed444de80b9358985be88d06266978df42f4c"
+    },
+    "fused": {
+      "path": "/workspace/pi-codemode-diff/native/bin/codemode-diff",
+      "sha256": "7eaa6eaf3de5e85beaf451244017f58d3f656d4f55a41ea334123c011b03dc1c"
+    }
+  },
+  "verdict": {
+    "ordinary_cases_equal": true,
+    "queue_parity": {
+      "sequential": {
+        "pi-control": true,
+        "pi-typescript": true,
+        "pig-control": true,
+        "pig-typescript": true,
+        "pig-source": true,
+        "pig-fused": true
+      },
+      "dependent_parallel": {
+        "pi-control": true,
+        "pi-typescript": true,
+        "pig-control": true,
+        "pig-typescript": true,
+        "pig-source": true,
+        "pig-fused": true
+      },
+      "overwrite_parallel": {
+        "pi-control": true,
+        "pi-typescript": true,
+        "pig-control": true,
+        "pig-typescript": true,
+        "pig-source": true,
+        "pig-fused": true
+      },
+      "queued_batch": {
+        "pi-control": true,
+        "pi-typescript": true,
+        "pig-control": true,
+        "pig-typescript": true,
+        "pig-source": true,
+        "pig-fused": true
+      }
+    },
+    "full_parity": true
+  }
+}
