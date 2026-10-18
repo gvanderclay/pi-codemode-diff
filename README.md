@@ -9,7 +9,7 @@ codemode
   ✓ write {"path":"src/config.ts", ...}
   ✓ edit {"path":"src/main.ts", ...}
 
-File changes (2)
+File changes (2) · 2 files
 
 src/config.ts [write · new] +2 -0
 +1 export const config = {
@@ -36,7 +36,7 @@ Public APIs used: `registerToolRenderer`, `tool_execution_start/end`, `tool_resu
 Install the released version directly from GitHub:
 
 ```bash
-pi install git:github.com/hyein-cbio/pi-codemode-diff@v0.1.3
+pi install git:github.com/hyein-cbio/pi-codemode-diff@v0.1.4
 ```
 
 You can also install the released package from npm:
@@ -69,7 +69,9 @@ The package does not bundle duplicate copies of host-provided modules. Pi instal
 
 ## PiG compatibility
 
-A native Go implementation is available in [`native/pig/`](native/pig/README.md). Its single factory supports both Go source subprocess loading and fused Piglet Binaries. See that module's README for setup, validation, and the file mutation queue boundary. The npm package continues to contain the TypeScript implementation only.
+A native Go implementation is available in [`native/pig/`](native/pig/README.md). Its single factory supports both Go source subprocess loading and fused Piglet Binaries. See that module's README for setup, validation, and the file mutation queue boundary.
+
+Native-only source archives are published separately in the [v0.1.4-pig GitHub release](https://github.com/hyein-cbio/pi-codemode-diff/releases/tag/v0.1.4-pig). For a persistent native installation from the repository root, run `pig install "$PWD/native"`; [`native/package.json`](native/package.json) declares the Go extension path. Do not use `pig install "$PWD/native/pig"`: that is an individual extension, loadable with `-e`, not an installable package. Load only one implementation. The repository-root package and the npm package continue to contain the TypeScript implementation only.
 
 On PiG, the extension executes both `write` and `edit` through one shared per-file queue. The TypeScript path reuses both SDK tool definitions; the Go source and fused paths share one native queue. This fixes concurrent dependent edits failing or being overwritten by queued writes. Actual Pi/PiG parity tests pass across all three PiG paths; see the [cross-host parity report](native/pig/PARITY.md). Pi continues to use its existing execution path. Load one implementation, and avoid another extension overriding either tool independently.
 
@@ -117,7 +119,8 @@ Because host detection depends on a private SDK shim, revalidate compatibility f
 - Press Ctrl+O again to return to the preview.
 - If you customize the keybinding in Pi, the expansion hint uses your configured key.
 - Long lines wrap to the terminal width before the preview limit is applied.
-- Repeated changes to the same file appear separately by call; they are not merged into a cumulative diff.
+- The header distinguishes per-call changes from distinct recorded paths, e.g. `File changes (5) · 2 files`. Repeated changes to the same path count once toward the file total but remain separate changes; they are not merged into a cumulative diff. Paths are compared exactly as recorded, without resolving relative/absolute aliases, symlinks, or case differences.
+- When a change has no retained diff, the header adds a summary such as `· 2 diffs unavailable`, including changes outside the collapsed preview. This covers safety-budget omissions, binary/unreadable content, missing edit diffs, and diff-generation failures; each change retains its detailed notice. Expanding cannot recover these diffs. Empty diffs (such as unchanged writes or empty-file creation) and diffs merely folded by the preview are not counted as unavailable. The summary is display-only and also applies to resumed sessions.
 - Single-line replacements highlight changed words with inverse video: green on added lines, red on removed lines, like Pi's native edit diff. This works in both preview and expanded views, for captured edits and write overwrites, including PiG entries. Like Pi, only a consecutive block with exactly one removed and one added line gets word highlighting; larger replacement blocks and standalone additions/deletions keep line colors. Leading indentation is not highlighted. Whitespace changes that cannot be reconstructed exactly keep their original lines without word highlighting. Very large or complex word comparisons also fall back to line colors to keep rendering responsive.
 
 Full view means **all change hunks in a retained diff**, not the entire unchanged file. The surrounding context lines and omission markers produced by Pi's diff generator remain intact. Diffs omitted by the safety budgets below cannot be recovered by expanding the view.

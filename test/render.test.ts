@@ -34,10 +34,48 @@ test("collapsed previews are bounded; full view retains all changes and lines", 
   assert.equal(full.includes("more lines"), false);
 });
 
+test("headers count all calls and distinct recorded paths without merging changes", () => {
+  const paths = ["same.ts", "same.ts", "other.ts", "other.ts", "same.ts"];
+  const changes = paths.map((path, i) => ({ ...change(`call-${i}`), path }));
+  const saved = JSON.stringify(changes);
+  for (const expanded of [false, true]) {
+    const output = text(diffSection(changes, expanded, theme));
+    assert.match(output, /File changes \(5\) · 2 files/);
+    assert.doesNotMatch(output, /diffs? unavailable/);
+    assert.equal((output.match(/same\.ts \[edit\]/g) ?? []).length, expanded ? 3 : 2);
+    assert.equal(JSON.stringify(changes), saved);
+  }
+  const aliases = ["same.ts", "./same.ts", "/tmp/same.ts", "Same.ts", "한글.ts"];
+  assert.match(text(diffSection(aliases.map((path, i) => ({ ...change(String(i), ""), path })), false, theme)),
+    /File changes \(5\) · 5 files/);
+  assert.match(text(diffSection([change("one", "")], false, theme)), /File changes \(1\) · 1 file\s*\n/);
+  assert.equal(text(diffSection([], false, theme)), "");
+});
+
+test("unavailable summary includes changes outside the preview and ignores note wording", () => {
+  const changes: Change[] = [
+    change("a"), change("b"), change("c"),
+    { toolCallId: "d", tool: "write", path: "a.ts", kind: "unknown", note: "Binary content; text diff unavailable." },
+    { toolCallId: "e", tool: "edit", path: "a.ts", kind: "edit" },
+  ];
+  for (const expanded of [false, true]) {
+    const output = text(diffSection(changes, expanded, theme));
+    assert.match(output, /File changes \(5\) · 3 files · 2 diffs unavailable/);
+    assert.equal(output.includes("Binary content"), expanded);
+    assert.equal(output.includes("2 more changes"), !expanded);
+  }
+  // Empty diffs carry no visible hunks but are available, whatever their note says.
+  const empty = { ...change("empty", ""), note: "Created an empty file." };
+  const unchanged = { ...change("unchanged", ""), note: "No content changes." };
+  const normalized = { ...change("normalized", ""), note: "Only line endings or the UTF-8 BOM changed (normalized in this view)." };
+  assert.doesNotMatch(text(diffSection([empty, unchanged, normalized], true, theme)), /diffs? unavailable/);
+});
+
 test("omitted large diffs remain notices in both preview and expanded views", () => {
   const item = limitChange(change("large", "+1 " + "secret-marker".repeat(MAX_DIFF_BYTES)));
   for (const expanded of [false, true]) {
     const output = text(diffSection([item], expanded, theme));
+    assert.match(output, /File changes \(1\) · 1 file · 1 diff unavailable/);
     assert.match(output, /Diff omitted: diff too large/);
     assert.doesNotMatch(output, /secret-marker|\+0 -0|more lines/);
   }

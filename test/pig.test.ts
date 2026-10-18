@@ -120,6 +120,29 @@ test("PiG persisted entries share safe previews, expansion, and width handling",
   }
 });
 
+test("PiG resumed entries summarize repeated paths and unavailable diffs beyond the preview", () => {
+  const host = harness();
+  // Legacy persisted data is bounded when read, before the header is computed.
+  const changes = Array.from({ length: 4 }, (_, i) => ({
+    ...change, toolCallId: `a/${i + 1}`,
+    diff: i === 3 ? "x".repeat(65537) : i === 1 ? "" : change.diff,
+  }));
+  const data = JSON.parse(JSON.stringify({ toolCallId: "a", [DETAILS_KEY]: { version: 1, changes } }));
+  const before = JSON.stringify(data);
+  for (const expanded of [false, true]) {
+    const component = host.render(data, expanded)!;
+    const output = component.render(80).join("\n");
+    assert.match(output, /File changes \(4\) · 1 file · 1 diff unavailable/);
+    assert.equal(output.includes("Diff omitted: diff too large"), expanded);
+    assert.doesNotMatch(output, /x{10}/);
+    for (const width of [16, 40, 80]) {
+      component.invalidate();
+      assert.ok(component.render(width).every(line => visibleWidth(line) <= width));
+    }
+  }
+  assert.equal(JSON.stringify(data), before, "Summaries must not rewrite saved metadata");
+});
+
 test("PiG persisted replacements highlight changed words in both display modes", () => {
   const host = harness();
   const data = { toolCallId: "a", [DETAILS_KEY]: { version: 1, changes: [{

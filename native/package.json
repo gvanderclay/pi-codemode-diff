@@ -1,0 +1,9 @@
+{
+  "name": "pi-codemode-diff-native",
+  "version": "0.1.4-pig",
+  "private": true,
+  "description": "Native Go extension package for pi-codemode-diff on PiG.",
+  "pi": {
+    "extensions": ["pig"]
+  }
+}

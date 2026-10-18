@@ -191,7 +191,30 @@ func renderChanges(id string, changes []change, expanded bool, width int, theme 
 	add := func(text string) { lines = append(lines, wrapText(text, width)...) }
 	add(theme.Fg("muted", "codemode "+inlineText(id)))
 	add("")
-	add(theme.Fg("toolTitle", theme.Bold(fmt.Sprintf("File changes (%d)", len(changes)))))
+	// Summarize the whole batch, not only the collapsed preview. Compare paths
+	// exactly as recorded; counting must not perform filesystem reads.
+	files := make(map[string]struct{})
+	unavailable := 0
+	for _, item := range changes {
+		files[item.Path] = struct{}{}
+		// A non-nil empty diff is available (e.g. an unchanged write).
+		if item.Diff == nil {
+			unavailable++
+		}
+	}
+	fileLabel := "files"
+	if len(files) == 1 {
+		fileLabel = "file"
+	}
+	summary := fmt.Sprintf("File changes (%d) · %d %s", len(changes), len(files), fileLabel)
+	if unavailable > 0 {
+		diffLabel := "diffs"
+		if unavailable == 1 {
+			diffLabel = "diff"
+		}
+		summary += fmt.Sprintf(" · %d %s unavailable", unavailable, diffLabel)
+	}
+	add(theme.Fg("toolTitle", theme.Bold(summary)))
 	shown := len(changes)
 	if !expanded {
 		shown = min(shown, 3)

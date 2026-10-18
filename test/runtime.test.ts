@@ -181,6 +181,7 @@ test("real Pi highlights nested edit/write replacements after theme changes and 
   for (const expanded of [false, true, false]) {
     component.setExpanded(expanded);
     const output = component.render(100).join("\n");
+    assert.match(stripVTControlCharacters(output), /File changes \(3\) · 1 file/);
     for (const word of ["1000", "5000", "9000"]) assert.ok(output.includes(`\u001b[7m${word}\u001b[27m`), JSON.stringify(output));
   }
   const dark = component.render(100).join("\n");
@@ -199,6 +200,7 @@ test("real Pi highlights nested edit/write replacements after theme changes and 
   replay.setArgsComplete();
   replay.updateResult(persisted);
   assert.ok(replay.render(100).join("\n").includes("\u001b[7m9000\u001b[27m"));
+  assert.match(stripVTControlCharacters(replay.render(100).join("\n")), /File changes \(3\) · 1 file/);
 });
 
 test("Pi's actual tool component composes native codemode output with expandable diffs", options, async t => {
@@ -214,7 +216,7 @@ test("Pi's actual tool component composes native codemode output with expandable
   component.setArgsComplete();
   component.updateResult(result);
   const visible = () => stripVTControlCharacters(component.render(80).join("\n"));
-  assert.match(visible(), /File changes/);
+  assert.match(visible(), /File changes \(1\) · 1 file/);
   assert.match(visible(), /many.txt/);
   assert.equal(visible().includes("marker-30"), false);
   component.setExpanded(true);

@@ -58,7 +58,14 @@ export function diffSection(changes: readonly Change[], expanded: boolean, theme
   const section = new Container();
   if (!changes.length) return section;
   section.addChild(new Spacer(1));
-  section.addChild(new Text(theme.fg("toolTitle", theme.bold(`File changes (${changes.length})`)), 0, 0));
+  // Count the whole batch, including changes hidden by the collapsed preview.
+  // Paths are compared as recorded; counting must not perform filesystem reads.
+  const files = new Set(changes.map(change => change.path)).size;
+  // An empty diff is available (e.g. an unchanged write), not missing.
+  const unavailable = changes.filter(change => change.diff === undefined).length;
+  const summary = `File changes (${changes.length}) · ${files} ${files === 1 ? "file" : "files"}` +
+    (unavailable ? ` · ${unavailable} ${unavailable === 1 ? "diff" : "diffs"} unavailable` : "");
+  section.addChild(new Text(theme.fg("toolTitle", theme.bold(summary)), 0, 0));
 
   const shown = expanded ? changes : changes.slice(0, PREVIEW_CHANGES);
   for (const change of shown) {

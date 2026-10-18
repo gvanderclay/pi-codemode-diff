@@ -11,6 +11,22 @@ import { runtimeFixture } from "./runtime-fixture.ts";
 
 const exec = promisify(execFile);
 
+test("the native PiG package declares only the Go factory and stays separate from the TypeScript package", async () => {
+  const nativeRoot = new URL("../native/", import.meta.url);
+  const manifest = JSON.parse(await readFile(new URL("package.json", nativeRoot), "utf8"));
+  const root = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(manifest.name, "pi-codemode-diff-native");
+  assert.equal(manifest.version, `${root.version}-pig`);
+  assert.equal(manifest.private, true);
+  assert.deepEqual(manifest.pi, { extensions: ["pig"] });
+  assert.equal(manifest.dependencies, undefined, "The native wrapper must not require Node runtime dependencies");
+  for (const path of ["go.mod", "extension.go"]) {
+    assert.ok((await readFile(new URL(`pig/${path}`, nativeRoot), "utf8")).length > 0,
+      `The declared Go factory must contain ${path}`);
+  }
+  assert.deepEqual(root.pi.extensions, ["./src/index.ts"]);
+});
+
 test("the packed npm artifact contains only distributable files and loads through real Pi", { timeout: 30_000 }, async t => {
   if (process.platform === "win32") {
     t.skip("This packaging smoke test uses the POSIX tar executable");
@@ -33,7 +49,7 @@ test("the packed npm artifact contains only distributable files and loads throug
   ]) {
     assert.ok(files.includes(required), `${required} must be distributed`);
   }
-  assert.ok(files.every(path => !/^(node_modules|test|coverage)\//.test(path) && !path.includes(".DS_Store")));
+  assert.ok(files.every(path => !/^(node_modules|test|coverage|native)\//.test(path) && !path.includes(".DS_Store")));
   await exec("tar", ["-xzf", join(directory, artifact.filename), "-C", directory]);
   const personalHome = /\/(?:Users|home)\/[^/\s]+\/|[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s]+[\\/]+/i;
   for (const path of files) {

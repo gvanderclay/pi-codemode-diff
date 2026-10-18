@@ -12,6 +12,20 @@ The module uses the public Go SDK v0.4.1. It imports no PiG internal packages an
 
 Latest stable releases were rechecked on 2026-10-16: Pi **1.3.0**, PiG **0.4.1+1.0.3**, and Go SDK **0.4.1**. Core execution, shared queues, TUI, and Node-free runtime checks pass. Released PiG has an existing tool-input-rewrite limitation, also present with this extension disabled; the strict full parity gate retains those two failures. See [latest-release compatibility](COMPATIBILITY.md) for results, exact source identities, and evidence.
 
+## Native release archives
+
+The native release is **0.1.4-pig**, corresponding to the TypeScript/npm release **0.1.4**. Download the named source archives and `SHA256SUMS` from the [GitHub release](https://github.com/hyein-cbio/pi-codemode-diff/releases/tag/v0.1.4-pig). These attachments include `native/package.json`, the `native/pig` Go module, and `native/piglet.yaml`, without the TypeScript implementation or Node dependencies. No compiled binaries are attached.
+
+After verifying the archive checksum, extract and install the package:
+
+```bash
+tar -xzf pi-codemode-diff-0.1.4-pig-source.tar.gz
+cd pi-codemode-diff-0.1.4-pig
+pig install "$PWD/native"
+```
+
+GitHub's automatic **Source code** downloads contain the whole repository; use the named native source attachments for the Go-only distribution. Development scripts under `native/tests` require a full repository checkout.
+
 ## Go source mode
 
 From the repository root, load the factory for one session:
@@ -20,11 +34,15 @@ From the repository root, load the factory for one session:
 pig -e "$PWD/native/pig" --tools read,bash,edit,write,codemode
 ```
 
-Or install it persistently:
+Or install the native package persistently, also from the repository root:
 
 ```bash
-pig install "$PWD/native/pig"
+pig install "$PWD/native"
 ```
+
+`native/package.json` declares `pig` as the package's extension path. Install the package directory (`native`), not the individual Go extension directory (`native/pig`): PiG 0.4.1 rejects the latter as "an extension, not a package". The `-e` command above still loads that individual extension directly.
+
+This metadata is only a package-discovery wrapper; it adds no Node.js runtime requirement. Local installation references the directory in place, so keep it at the installed path. The repository-root package remains the TypeScript implementation; do not install both implementations together.
 
 Enable codemode separately if it is not already in your default tools. Use `/reload` after source edits. Load one implementation: remove or disable the TypeScript extension when selecting the Go factory. Both implementations register `write`, `edit`, and the same custom-entry renderer.
 
@@ -51,6 +69,7 @@ Fusion changes the delivery and process boundary. It uses the same factory, even
 - Isolates parallel parent calls and displays changes in call-start order.
 - Adds `details.piCodemodeDiff` to the parent result and appends a persisted `pi-codemode-diff:pig` custom entry at completion. File diff data stays outside model-facing result content and provider requests.
 - Preserves the host's codemode card. The custom entry contains three changes and eight visual lines per diff when collapsed. Ctrl+O expands and collapses the entry. The expansion hint uses generic text because the Go SDK does not expose Pi's `keyText` helper.
+- The header distinguishes per-call changes from distinct recorded paths, e.g. `File changes (5) · 2 files`. Paths are compared exactly as recorded, without resolving aliases, symlinks, or case differences. It adds `· N diffs unavailable` for changes with no retained diff, including those outside the collapsed preview; per-change notices explain the reasons. Expanding cannot recover unavailable diffs. Empty diffs and preview-folded diffs are not counted as unavailable. This display-only summary also works for saved entries.
 - Uses theme diff colors and bounded jsdiff-compatible word highlighting. Sanitizes control characters in displayed paths and file content. Wraps by grapheme width before applying the preview limit.
 - Restores display from saved entries after resume and `/reload`. Old metadata-only sessions are not backfilled.
 - Reports a captured mutation together with a final tool error or cancellation.
