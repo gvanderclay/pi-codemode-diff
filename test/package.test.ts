@@ -17,7 +17,8 @@ test("the native PiG package declares only the Go factory and stays separate fro
   const root = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.equal(manifest.name, "pi-codemode-diff-native");
   assert.equal(manifest.version, `${root.version}-pig`);
-  assert.equal(manifest.private, true);
+  assert.equal(manifest.private, undefined);
+  assert.ok(manifest.keywords?.includes("pig-package"), "PiG lists native packages by the pig-package keyword");
   assert.deepEqual(manifest.pi, { extensions: ["pig"] });
   assert.equal(manifest.dependencies, undefined, "The native wrapper must not require Node runtime dependencies");
   for (const path of ["go.mod", "extension.go"]) {
