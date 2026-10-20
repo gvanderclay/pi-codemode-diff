@@ -1,0 +1,5 @@
+# Drop Go tests and fixtures from the published tarball.
+# package.json "files" disables a root .npmignore; this file applies
+# while npm packs the pig directory.
+*_test.go
+testdata/

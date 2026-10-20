@@ -12,7 +12,16 @@
     "url": "https://github.com/hyein-cbio/pi-codemode-diff/issues"
   },
   "keywords": ["pig-package"],
-  "files": ["pig", "piglet.yaml"],
+  "files": [
+    "README.md",
+    "piglet.yaml",
+    "pig/*.go",
+    "pig/*.md",
+    "pig/go.mod",
+    "pig/go.sum",
+    "pig/LICENSE",
+    "pig/NOTICE"
+  ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

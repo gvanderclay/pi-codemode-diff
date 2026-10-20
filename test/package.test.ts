@@ -28,6 +28,26 @@ test("the native PiG package declares only the Go factory and stays separate fro
   assert.deepEqual(root.pi.extensions, ["./src/index.ts"]);
 });
 
+test("the packed native package publishes a README and omits Go tests", { timeout: 30_000 }, async () => {
+  const nativeRoot = fileURLToPath(new URL("../native/", import.meta.url));
+  const args = ["pack", "--json", "--ignore-scripts", "--dry-run"];
+  const npmCli = process.env.npm_execpath;
+  const { stdout } = npmCli
+    ? await exec(process.execPath, [npmCli, ...args], { cwd: nativeRoot })
+    : await exec("npm", args, { cwd: nativeRoot });
+  const [artifact] = JSON.parse(stdout) as Array<{ files: Array<{ path: string }> }>;
+  const files = artifact.files.map(file => file.path);
+  for (const required of [
+    "package.json", "README.md", "piglet.yaml",
+    "pig/extension.go", "pig/go.mod", "pig/go.sum", "pig/LICENSE", "pig/NOTICE",
+    "pig/fs_access_unix.go", "pig/fs_access_windows.go",
+  ]) {
+    assert.ok(files.includes(required), `${required} must be distributed`);
+  }
+  const omitted = files.filter(path => path.endsWith("_test.go") || path.startsWith("pig/testdata/"));
+  assert.deepEqual(omitted, [], "tests and fixtures must stay out of the tarball");
+});
+
 test("the packed npm artifact contains only distributable files and loads through real Pi", { timeout: 30_000 }, async t => {
   if (process.platform === "win32") {
     t.skip("This packaging smoke test uses the POSIX tar executable");
