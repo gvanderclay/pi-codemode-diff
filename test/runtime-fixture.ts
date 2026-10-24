@@ -19,6 +19,8 @@ import {
 interface FixtureOptions {
   tools?: string[];
   extensionPath?: string;
+  openCode?: "before" | "after";
+  withoutDiff?: boolean;
   extraExtensions?: ExtensionFactory[];
   noTools?: "all" | "builtin";
 }
@@ -59,7 +61,11 @@ export async function runtimeFixture(t: TestContext, options: FixtureOptions = {
     noThemes: true,
     noPromptTemplates: true,
     noContextFiles: true,
-    additionalExtensionPaths: [options.extensionPath ?? fileURLToPath(new URL("../src/index.ts", import.meta.url))],
+    additionalExtensionPaths: [
+      ...(options.openCode === "before" ? [fileURLToPath(import.meta.resolve("pi-opencode-mode/index.js"))] : []),
+      ...(options.withoutDiff ? [] : [options.extensionPath ?? fileURLToPath(new URL("../src/index.ts", import.meta.url))]),
+      ...(options.openCode === "after" ? [fileURLToPath(import.meta.resolve("pi-opencode-mode/index.js"))] : []),
+    ],
     extensionFactories: [createCodemodeExtension(), ...(options.extraExtensions ?? [])],
   });
   await loader.reload();
@@ -70,7 +76,7 @@ export async function runtimeFixture(t: TestContext, options: FixtureOptions = {
     const result = await createAgentSession({
       cwd, agentDir, modelRuntime, model: faux.getModel(), thinkingLevel: "off",
       settingsManager: settings, sessionManager, resourceLoader: loader,
-      ...(options.noTools ? { noTools: options.noTools } : { tools: options.tools ?? ["read", "edit", "write", "codemode"] }),
+      ...(options.noTools ? { noTools: options.noTools } : { tools: options.tools ?? ["read", "edit", "write", "codemode", ...(options.openCode ? ["codemode_o"] : [])] }),
     });
     session = result.session;
     await session.bindExtensions({});
@@ -90,8 +96,8 @@ export async function runtimeFixture(t: TestContext, options: FixtureOptions = {
     return session!.messages.filter(message => message.role === "toolResult");
   }
 
-  async function codemode(code: string, id = "root", inspect?: FauxResponseStep) {
-    const results = await run([{ id, name: "codemode", arguments: { code } }], inspect);
+  async function codemode(code: string, id = "root", inspect?: FauxResponseStep, name = "codemode") {
+    const results = await run([{ id, name, arguments: { code } }], inspect);
     const result = [...results].reverse().find(message => message.toolCallId === id);
     assert.ok(result, "The real agent loop must produce the parent codemode result");
     return result;

@@ -183,13 +183,13 @@ func wrapText(text string, width int) []string {
 	return result
 }
 
-func renderChanges(id string, changes []change, expanded bool, width int, theme sdk.UITheme) []string {
+func renderChanges(toolName, id string, changes []change, expanded bool, width int, theme sdk.UITheme) []string {
 	if len(changes) == 0 || width < 1 {
 		return nil
 	}
 	var lines []string
 	add := func(text string) { lines = append(lines, wrapText(text, width)...) }
-	add(theme.Fg("muted", "codemode "+inlineText(id)))
+	add(theme.Fg("muted", inlineText(toolName)+" "+inlineText(id)))
 	add("")
 	// Summarize the whole batch, not only the collapsed preview. Compare paths
 	// exactly as recorded; counting must not perform filesystem reads.

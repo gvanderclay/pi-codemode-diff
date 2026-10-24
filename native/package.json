@@ -1,19 +1,22 @@
 {
   "name": "pi-codemode-diff-native",
-  "version": "0.1.4-pig",
+  "version": "0.1.5-pig",
   "description": "Native Go extension package for pi-codemode-diff on PiG.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hyein-cbio/pi-codemode-diff.git"
+    "url": "git+https://github.com/hyein-cbio/pi-codemode-diff.git",
+    "directory": "native"
   },
-  "homepage": "https://github.com/hyein-cbio/pi-codemode-diff#readme",
+  "homepage": "https://github.com/hyein-cbio/pi-codemode-diff/tree/main/native#readme",
   "bugs": {
     "url": "https://github.com/hyein-cbio/pi-codemode-diff/issues"
   },
   "keywords": ["pig-package"],
   "files": [
     "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
     "piglet.yaml",
     "pig/*.go",
     "pig/*.md",

@@ -1,5 +1,7 @@
 # Latest-release compatibility
 
+This is the historical 2026-10-16 check. See [OpenCode parity](OPENCODE.md) for the 2026-10-24 Pi 1.4.0 / PiG 0.5.1 checks, native `codemode_o` support, and the explicit TypeScript entry now required on that PiG host.
+
 Checked on **2026-10-16**, Linux/amd64. The extension works in the tested latest Pi and PiG releases, including Go source and fused modes. The strict Pi/PiG parity gate remains **red for two existing PiG release input-rewrite differences**; extension-on/off controls show no added regression.
 
 ## Versions actually checked
@@ -56,12 +58,12 @@ No production extension change or dependency upgrade was necessary for this late
 
 ## Evidence and reproduction
 
-Compact records in [the validation directory](../validation/2026-10-16/):
+Compact records in [the validation directory](https://github.com/hyein-cbio/pi-codemode-diff/tree/v0.1.5-pig/native/validation/2026-10-16/):
 
-- [Version discovery](../validation/2026-10-16/latest-discovery.json) and [compatibility assessment](../validation/2026-10-16/latest-assessment.json).
-- [Strict stable-release comparison, including failures](../validation/2026-10-16/latest-stable.json), with executable SHA-256 hashes.
-- [Latest-release TUI](../validation/2026-10-16/latest-stable-tui.json) and [Node-free runtime, with full-suite limitation](../validation/2026-10-16/latest-stable-no-node.json).
-- [Targeted main-source input-rewrite checks](../validation/2026-10-16/latest-main-hooks.json).
+- [Version discovery](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/latest-discovery.json) and [compatibility assessment](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/latest-assessment.json).
+- [Strict stable-release comparison, including failures](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/latest-stable.json), with executable SHA-256 hashes.
+- [Latest-release TUI](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/latest-stable-tui.json) and [Node-free runtime, with full-suite limitation](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/latest-stable-no-node.json).
+- [Targeted main-source input-rewrite checks](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/latest-main-hooks.json).
 
 Raw CLI events, provider requests, files, and PTY transcripts remain under `/workspace/scratch/pi-pig-latest-stable`, `/workspace/scratch/pi-pig-latest-stable-tui`, `/workspace/scratch/pi-pig-latest-release-no-node`, and `/workspace/scratch/pi-pig-latest-main-hooks`. Initial/final SDK logs are `/workspace/scratch/pi-sdk-1.3.0-typecheck.log`, `/workspace/scratch/pi-sdk-1.3.0-tests-final.log`, and `/workspace/scratch/pi-sdk-1.0.2-backcompat.log`.
 

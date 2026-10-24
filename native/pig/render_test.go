@@ -25,7 +25,7 @@ func TestRendererSummary(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			before, _ := json.Marshal(tc.items)
 			for _, expanded := range []bool{false, true} {
-				output := sgr.ReplaceAllString(strings.Join(renderChanges("root", tc.items, expanded, 120, sdk.UITheme{}), "\n"), "")
+				output := sgr.ReplaceAllString(strings.Join(renderChanges("codemode", "root", tc.items, expanded, 120, sdk.UITheme{}), "\n"), "")
 				if !strings.Contains(output, "\n"+tc.want+"\n") {
 					t.Fatalf("expanded=%v: expected header %q in %q", expanded, tc.want, output)
 				}
@@ -42,7 +42,7 @@ func TestRendererSummary(t *testing.T) {
 			}
 		})
 	}
-	if lines := renderChanges("root", nil, false, 80, sdk.UITheme{}); len(lines) != 0 {
+	if lines := renderChanges("codemode", "root", nil, false, 80, sdk.UITheme{}); len(lines) != 0 {
 		t.Fatal("empty batch should not render a summary")
 	}
 }
@@ -54,7 +54,7 @@ func TestRendererSummaryFromLegacyEntry(t *testing.T) {
 	}}}
 	before, _ := json.Marshal(data)
 	for _, expanded := range []bool{false, true} {
-		output := sgr.ReplaceAllString(strings.Join(renderChanges("root", readChanges(data), expanded, 120, sdk.UITheme{}), "\n"), "")
+		output := sgr.ReplaceAllString(strings.Join(renderChanges("codemode", "root", readChanges(data), expanded, 120, sdk.UITheme{}), "\n"), "")
 		if !strings.Contains(output, "File changes (2) · 1 file · 1 diff unavailable") || !strings.Contains(output, "Diff omitted: diff too large") {
 			t.Fatal("legacy entry summary must use currently bounded diffs")
 		}

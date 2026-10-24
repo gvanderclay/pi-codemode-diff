@@ -45,15 +45,19 @@ function harness() {
     return { result, modified };
   }
 
-  async function finish(id: string, isError = false) {
+  async function finish(id: string, isError = false, name = "codemode") {
     const content = [{ type: "text", text: "Script output only" }];
     const originalDetails = { calls: [{ id: `${id}/1`, name: "write", status: "ok" }], fullOutputPath: "/tmp/output" };
-    const result = await emit({ type: "tool_result", toolCallId: id, toolName: "codemode", input: {}, content, details: originalDetails, isError });
+    const structuredContent = { returned: "untouched" };
+    const usage = { input: 3, output: 5 };
+    const result = await emit({ type: "tool_result", toolCallId: id, toolName: name, input: {}, content, structuredContent, usage, details: originalDetails, isError });
+    assert.strictEqual(result.structuredContent, structuredContent);
+    assert.strictEqual(result.usage, usage);
     assert.strictEqual(result.content, content);
     assert.equal(result.isError, isError);
     assert.deepEqual((result.details as Event).calls, originalDetails.calls);
     assert.equal((result.details as Event).fullOutputPath, originalDetails.fullOutputPath);
-    await emit({ type: "tool_execution_end", toolCallId: id, toolName: "codemode", result, isError });
+    await emit({ type: "tool_execution_end", toolCallId: id, toolName: name, result, isError });
     return result;
   }
 
@@ -219,6 +223,49 @@ test("an edit without display details produces a notice rather than an invented 
   const change = readChanges((await host.finish("root")).details)![0];
   assert.equal(change.diff, undefined);
   assert.match(change.note!, /did not provide/);
+});
+
+for (const name of ["codemode", "codemode_o"]) {
+  test(`${name}: edit/write capture, failed-parent retention and lifecycle cleanup`, async t => {
+    const host = harness();
+    const dir = await temp(t);
+    await host.start("root", name);
+    await host.runWrite(dir, "root/1", "a.txt", "before\n", "root");
+    await host.start("root/2", "edit", "root");
+    await host.emit({
+      type: "tool_result", toolCallId: "root/2", toolName: "edit", input: { path: "a.txt" },
+      content: [], details: { diff: "-1 before\n+1 after" }, isError: false,
+    });
+    const result = await host.finish("root", true, name);
+    assert.deepEqual(readChanges(result.details)?.map(change => change.tool), ["write", "edit"]);
+    assert.equal(readChanges((await host.finish("root", false, name)).details), undefined);
+    for (const type of ["session_start", "agent_end", "session_shutdown"]) {
+      await host.start("abandoned", name);
+      await host.runWrite(dir, "abandoned/1", "a.txt", type, "abandoned");
+      await host.emit({ type });
+      assert.equal(readChanges((await host.finish("abandoned", false, name)).details), undefined);
+    }
+  });
+}
+
+test("mixed roots remain isolated and codemode prefixes do not establish capture", async t => {
+  const host = harness();
+  const dir = await temp(t);
+  for (const name of ["codemode", "codemode_o", "codemode_other", "codemode_o_extra", "helper"]) {
+    await host.start(name, name);
+  }
+  await Promise.all(["codemode", "codemode_o", "codemode_other", "codemode_o_extra", "helper"].map(name =>
+    host.runWrite(dir, `${name}/1`, name, name, name)));
+  for (const name of ["codemode", "codemode_o", "codemode_other", "codemode_o_extra", "helper"]) {
+    const changes = readChanges((await host.finish(name, false, name)).details);
+    if (name === "codemode" || name === "codemode_o") {
+      assert.deepEqual(changes?.map(change => change.path), [name]);
+    } else {
+      assert.equal(changes, undefined);
+      const base: ToolRenderers = { renderResult: () => { throw new Error("unused"); } };
+      assert.strictEqual(host.getRenderer()(name, () => base), base);
+    }
+  }
 });
 
 for (const lifecycle of ["agent_end", "session_shutdown"]) {

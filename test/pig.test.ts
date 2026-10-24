@@ -64,6 +64,21 @@ test("Pi loads and runs without the PiG-only display module even being present",
     entry.type === "custom" && entry.customType === PIG_ENTRY_TYPE), false);
 });
 
+test("explicit PiG entry works without the removed private SDK shim", async t => {
+  const fixture = await runtimeFixture(t, {
+    extensionPath: fileURLToPath(new URL("../src/pig-index.ts", import.meta.url)),
+    openCode: "after",
+  });
+  const result = await fixture.codemode('return await tools.write({path: "explicit.txt", content: "kept"});', "root", undefined, "codemode_o");
+  assert.equal(result.isError, false);
+  const entries = fixture.session.sessionManager.getEntries().filter(entry => entry.type === "custom" && entry.customType === PIG_ENTRY_TYPE);
+  assert.equal(entries.length, 1);
+  const data = (entries[0] as { data: { toolName: string; toolCallId: string } }).data;
+  assert.equal(data.toolName, "codemode_o");
+  assert.equal(data.toolCallId, "root");
+  assert.deepEqual(readChanges(data), readChanges(result.details));
+});
+
 test("PiG identification requires the loaded SDK runtime's exact API identity", () => {
   const pi = {} as ExtensionAPI;
   assert.equal(isPiGHost(pi), false, "The real Pi SDK must never enable the fallback");
@@ -79,25 +94,26 @@ test("PiG publishes isolated final entries, including observed writes with final
   const host = harness();
   host.capture.start("a", "codemode");
   host.capture.start("a/1", "write", "a");
-  host.capture.start("b", "codemode");
+  host.capture.start("b", "codemode_o");
   host.capture.start("b/1", "edit", "b");
   host.capture.add(change);
   host.capture.add({ ...change, toolCallId: "b/1", tool: "edit", kind: "edit", path: "other.ts" });
   host.capture.reportError("a/1");
-  host.publish("a/1");
-  host.publish("empty");
+  host.publish("a/1", "codemode");
+  host.publish("empty", "codemode");
   assert.equal(host.entries.length, 0, "No direct or nested entry, or empty entry");
-  host.publish("b");
+  host.publish("b", "codemode_o");
   host.capture.end("b");
-  host.publish("a");
+  host.publish("a", "codemode");
   host.capture.end("a");
-  host.publish("a");
+  host.publish("a", "codemode");
   assert.equal(host.entries.length, 2);
   const saved = JSON.parse(JSON.stringify(host.entries));
   host.capture.clear();
   const b = host.render(saved[0].data, true)!.render(80).join("\n");
   const a = host.render(saved[1].data, true)!.render(80).join("\n");
-  assert.match(b, /codemode b/);
+  assert.equal(saved[0].data.toolName, "codemode_o");
+  assert.match(b, /codemode_o b/);
   assert.match(b, /other.ts/);
   assert.doesNotMatch(b, /new.ts/);
   assert.match(a, /File changes \(1\)/);
@@ -109,6 +125,7 @@ test("PiG persisted entries share safe previews, expansion, and width handling",
   const host = harness();
   const data = { toolCallId: "a\n\u001b[2J", [DETAILS_KEY]: { version: 1, changes: [change] } };
   const collapsed = host.render(data)!.render(80).join("\n");
+  assert.match(collapsed, /codemode a/);
   assert.match(collapsed, /more lines/);
   assert.doesNotMatch(collapsed, /line-30/);
   assert.doesNotMatch(collapsed, /\u001b/);

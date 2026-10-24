@@ -1,0 +1,14 @@
+[
+  {
+    "mode": "pig-source",
+    "node_absent": true,
+    "go_absent": false,
+    "status": "pass"
+  },
+  {
+    "mode": "pig-fused",
+    "node_absent": true,
+    "go_absent": true,
+    "status": "pass"
+  }
+]

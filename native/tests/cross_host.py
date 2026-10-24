@@ -142,7 +142,9 @@ class Harness:
             cmd = [str(self.args.fused if mode == "pig-fused" else self.args.pig)]
         cmd += ["--offline", "--no-extensions", "-e", "builtin:codemode"]
         if mode in ("pi-typescript", "pig-typescript"):
-            cmd += ["-e", str(REPO / "src/index.ts")]
+            entry = getattr(self.args, "pig_typescript_entry", None) if mode == "pig-typescript" else None
+            # CLI and TUI hosts run in disposable workspaces, not the caller's cwd.
+            cmd += ["-e", str(entry.resolve() if entry is not None else REPO / "src/index.ts")]
         elif mode == "pig-source":
             cmd += ["-e", str(REPO / "native/pig")]
         if name in PROBE_CASES:
@@ -244,6 +246,7 @@ def main():
     parser.add_argument("--pig", type=pathlib.Path, required=True)
     parser.add_argument("--fused", type=pathlib.Path, required=True)
     parser.add_argument("--node", default=shutil.which("node"))
+    parser.add_argument("--pig-typescript-entry", type=pathlib.Path, help="Explicit PiG TS entry, e.g. src/pig-index.ts on PiG 0.5.1")
     parser.add_argument("--output", type=pathlib.Path)
     parser.add_argument("--runs", type=int, default=2)
     parser.add_argument("--queue-rounds", type=int, default=20)

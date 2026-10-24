@@ -2,6 +2,7 @@ import {
   isEditToolResult,
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
+import { isCodemodeTool } from "./tools.ts";
 import { Capture } from "./capture.ts";
 import { asRecord, DETAILS_KEY } from "./changes.ts";
 import { registerDiffRenderer } from "./render.ts";
@@ -13,12 +14,13 @@ export default function codemodeDiff(pi: ExtensionAPI): void | Promise<void> {
   if (typeof pi.registerToolRenderer !== "function") {
     throw new Error("pi-codemode-diff requires Pi >=1.0.1: registerToolRenderer is unavailable. Update Pi and reload the extension.");
   }
-  if (isPiGHost(pi)) {
-    // PiG waits for async factories, as Pi does. Pi never loads this module
-    // and keeps its original synchronous registration path.
-    return import("./pig.ts").then(({ registerPiGDisplay }) => register(pi, registerPiGDisplay));
-  }
+  if (isPiGHost(pi)) return codemodeDiffPiG(pi);
   register(pi);
+}
+
+/** Explicit PiG entry for hosts whose SDK no longer exposes __runtime(). */
+export function codemodeDiffPiG(pi: ExtensionAPI): Promise<void> {
+  return import("./pig.ts").then(({ registerPiGDisplay }) => register(pi, registerPiGDisplay));
 }
 
 function register(pi: ExtensionAPI, createPiGDisplay?: typeof registerPiGDisplay): void {
@@ -45,7 +47,7 @@ function register(pi: ExtensionAPI, createPiGDisplay?: typeof registerPiGDisplay
       if (event.isError) capture.reportError(event.toolCallId);
     }
 
-    if (event.toolName !== "codemode") return;
+    if (!isCodemodeTool(event.toolName)) return;
     const details = capture.details(event.toolCallId);
     if (!details) return;
     // Only details change. Script values, content, usage, structuredContent,
@@ -60,7 +62,7 @@ function register(pi: ExtensionAPI, createPiGDisplay?: typeof registerPiGDisplay
       capture.reportError(event.toolCallId);
     }
     try {
-      if (event.toolName === "codemode") publishPiG?.(event.toolCallId);
+      if (isCodemodeTool(event.toolName)) publishPiG?.(event.toolCallId, event.toolName);
     } finally {
       capture.end(event.toolCallId);
     }

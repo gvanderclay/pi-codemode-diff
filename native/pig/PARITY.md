@@ -1,5 +1,7 @@
 # Pi and PiG parity report
 
+For the newer `codemode_o` implementation and Pi 1.4.0 / PiG 0.5.1 checks, see [OpenCode parity](OPENCODE.md). The historical results below retain their original version and platform scope.
+
 This report covers Pi 1.0.3 and the specified PiG main-source revision. See [latest-release compatibility](COMPATIBILITY.md) for Pi 1.3.0 and the official PiG 0.4.1 release, including its two existing input-rewrite differences.
 
 Validated on 2026-10-16 on Linux/amd64. **All tested cross-host comparisons pass after the shared write/edit queue fix**, including the previously failing same-file concurrent mutation reproducers. This establishes the tested contracts and versions; it does not claim equivalence of every host feature or arbitrary extension combinations.
@@ -85,7 +87,7 @@ Windows filesystem behavior and arbitrary third-party extension stacks are outsi
 
 ## Evidence and reproduction
 
-Compact machine-readable summaries are retained under [native/validation/2026-10-16](../validation/2026-10-16/): [before](../validation/2026-10-16/before.json), [original scenarios after](../validation/2026-10-16/after.json), [additional edits after](../validation/2026-10-16/edit-after.json), [TUI](../validation/2026-10-16/tui-after.json), and [Node-free runtime](../validation/2026-10-16/no-node-after.json). Cross-host summaries include executable SHA-256 hashes. The before summary represents the earlier implementation, not the current gate.
+Compact machine-readable summaries are retained under [native/validation/2026-10-16](https://github.com/hyein-cbio/pi-codemode-diff/tree/v0.1.5-pig/native/validation/2026-10-16/): [before](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/before.json), [original scenarios after](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/after.json), [additional edits after](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/edit-after.json), [TUI](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/tui-after.json), and [Node-free runtime](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/validation/2026-10-16/no-node-after.json). Cross-host summaries include executable SHA-256 hashes. The before summary represents the earlier implementation, not the current gate.
 
 Raw events, stderr, second provider requests, normalized comparisons, and terminal transcripts remain in the workspace directories `/workspace/scratch/pi-pig-parity-fixed`, `/workspace/scratch/pi-pig-edit-parity-fixed`, `/workspace/scratch/pi-pig-tui-fixed`, and `/workspace/scratch/pi-pig-no-node-fixed`.
 

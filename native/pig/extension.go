@@ -21,7 +21,7 @@ func Extension() *sdk.Extension {
 		if !ok {
 			return nil, nil
 		}
-		return renderChanges(id, readChanges(data), options.Expanded, width, ctx.UITheme()), nil
+		return renderChanges(entryToolName(data), id, readChanges(data), options.Expanded, width, ctx.UITheme()), nil
 	})
 	ext.OnEvent(sdk.EventToolExecutionStart, func(ctx sdk.Context, e map[string]any) (any, error) {
 		c.start(str(e, "toolCallId"), str(e, "toolName"), str(e, "parentToolCallId"))
@@ -48,7 +48,7 @@ func Extension() *sdk.Extension {
 				c.reportError(id)
 			}
 		}
-		if name != "codemode" {
+		if !isCodemodeTool(name) {
 			return nil, nil
 		}
 		if details := c.details(id); details != nil {
@@ -68,9 +68,9 @@ func Extension() *sdk.Extension {
 			c.reportError(id)
 		}
 		defer c.end(id)
-		if str(e, "toolName") == "codemode" {
+		if name := str(e, "toolName"); isCodemodeTool(name) {
 			if details := c.details(id); details != nil {
-				return nil, ctx.AppendEntry(entryType, map[string]any{"toolCallId": id, detailsKey: details})
+				return nil, ctx.AppendEntry(entryType, map[string]any{"toolCallId": id, "toolName": name, detailsKey: details})
 			}
 		}
 		return nil, nil

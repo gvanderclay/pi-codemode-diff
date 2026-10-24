@@ -27,7 +27,7 @@ func (c *capture) start(id, name, parent string) {
 	defer c.mu.Unlock()
 	root := c.calls[parent].root
 	if root == "" {
-		if name != "codemode" {
+		if !isCodemodeTool(name) {
 			return
 		}
 		root = id

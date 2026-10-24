@@ -145,7 +145,7 @@ test("highlighted Unicode replacements wrap within resized widths and retain ful
   }
 });
 
-test("original result rendering is preserved and gets its own previous component", () => {
+for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: original result rendering is preserved and gets its own previous component`, () => {
   let resolver: Parameters<ExtensionAPI["registerToolRenderer"]>[0] | undefined;
   const capture = new Capture();
   registerDiffRenderer({
@@ -161,7 +161,7 @@ test("original result rendering is preserved and gets its own previous component
       return original;
     },
   };
-  const wrapped = resolver!("codemode", () => base)!;
+  const wrapped = resolver!(rootTool, () => base)!;
   const render = wrapped.renderResult!;
   const result = { content: [{ type: "text" as const, text: "model output" }], details: { calls: [], [DETAILS_KEY]: { version: 1, changes: [change("a")] } } };
   type Context = Parameters<typeof render>[3];
@@ -185,13 +185,13 @@ test("original result rendering is preserved and gets its own previous component
   assert.equal(text(collapsed).includes("line-30"), false);
 });
 
-test("live partial results redraw and final persisted details work after cleanup", () => {
+for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: live partial results redraw and final persisted details work after cleanup`, () => {
   let resolver: Parameters<ExtensionAPI["registerToolRenderer"]>[0] | undefined;
   const capture = new Capture();
   registerDiffRenderer({ registerToolRenderer(value: typeof resolver) { resolver = value; } } as unknown as ExtensionAPI, capture);
-  const render = resolver!("codemode", () => ({ renderResult: () => new Text("running", 0, 0) }))!.renderResult!;
+  const render = resolver!(rootTool, () => ({ renderResult: () => new Text("running", 0, 0) }))!.renderResult!;
   let invalidated = 0;
-  capture.start("root", "codemode");
+  capture.start("root", rootTool);
   capture.start("root/1", "edit", "root");
   const context: Parameters<typeof render>[3] = {
     ...{ durationMs: undefined, outputPad: 0 },
@@ -235,21 +235,21 @@ test("Unicode, emoji, and tabs fit narrow widths after resize and invalidation",
   }
 });
 
-test("Pi does not invent a renderer for marker-like or missing downstream renderers", () => {
+for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: Pi does not invent a renderer for marker-like or missing downstream renderers`, () => {
   let resolver: Parameters<ExtensionAPI["registerToolRenderer"]>[0] | undefined;
   registerDiffRenderer({ registerToolRenderer(value: typeof resolver) { resolver = value; } } as unknown as ExtensionAPI, new Capture());
   const marker: ToolRenderers = { renderShell: "self" };
-  assert.strictEqual(resolver!("codemode", () => marker), marker);
-  assert.equal(resolver!("codemode", () => undefined), undefined);
+  assert.strictEqual(resolver!(rootTool, () => marker), marker);
+  assert.equal(resolver!(rootTool, () => undefined), undefined);
 });
 
-test("renderer composition keeps the original call renderer and shell", () => {
+for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: renderer composition keeps the original call renderer and shell`, () => {
   let resolver: Parameters<ExtensionAPI["registerToolRenderer"]>[0] | undefined;
   registerDiffRenderer({ registerToolRenderer(value: typeof resolver) { resolver = value; } } as unknown as ExtensionAPI, new Capture());
   const base: ToolRenderers = {
     renderShell: "self", renderCall: () => new Text("original call", 0, 0), renderResult: () => new Text("original result", 0, 0),
   };
-  const wrapped = resolver!("codemode", () => base)!;
+  const wrapped = resolver!(rootTool, () => base)!;
   assert.strictEqual(wrapped.renderCall, base.renderCall);
   assert.equal(wrapped.renderShell, "self");
 });

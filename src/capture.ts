@@ -1,3 +1,4 @@
+import { isCodemodeTool } from "./tools.ts";
 import { limitChange, type Change, type DiffDetails } from "./changes.ts";
 import { MAX_BATCH_DIFF_BYTES, MAX_BATCH_DIFF_LINES, lineCount } from "./limits.ts";
 
@@ -22,7 +23,7 @@ export class Capture {
 
   start(id: string, name: string, parentId?: string): void {
     const parentRoot = parentId ? this.calls.get(parentId)?.rootId : undefined;
-    if (!parentRoot && name !== "codemode") return;
+    if (!parentRoot && !isCodemodeTool(name)) return;
     const rootId = parentRoot ?? id;
     let batch = this.batches.get(rootId);
     if (!batch) {

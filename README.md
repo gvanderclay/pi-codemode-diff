@@ -1,276 +1,127 @@
 # pi-codemode-diff
 
-A Pi extension that **shows file diffs for `edit` and `write` calls made inside codemode**.
+Show file diffs for `edit` and `write` calls inside Pi's `codemode` and the optional `codemode_o` tool. Diffs stay in session display metadata, **not in model-facing tool output**.
 
-The existing renderer still handles the codemode script, nested call status, and script output. In Pi, this extension adds per-call file diffs below that output without changing the result content sent to the model. In PiG, it preserves the native codemode card and displays completed diffs in a separate transcript entry (see [PiG compatibility](#pig-compatibility)).
+This npm package is the **TypeScript implementation for Pi**. PiG users can install the separate [pi-codemode-diff-native](https://www.npmjs.com/package/pi-codemode-diff-native) Go package instead. Neither package depends on the other. Load only one diff implementation per session.
 
 ```diff
-codemode
-  ✓ write {"path":"src/config.ts", ...}
-  ✓ edit {"path":"src/main.ts", ...}
-
 File changes (2) · 2 files
 
-src/config.ts [write · new] +2 -0
-+1 export const config = {
-+2   timeout: 5000,
+src/config.ts [write · new] +1 -0
++1 export const timeout = 5000;
 
 src/main.ts [edit] +1 -1
 -4 const timeout = 1000;
 +4 const timeout = 5000;
-… (18 more lines, ctrl+o to expand)
 ```
 
-## Requirements
+## Install
 
-- **Pi 1.0.1 or later**. The current test suite runs against Pi 1.0.2; the minimum-host contract was also verified against Pi 1.0.1 in earlier releases.
-- Node.js 22.19 or later.
-- `codemode` must be active. This extension does not activate it.
-
-The minimum host version is declared in `peerDependencies` for both `@earendil-works/pi-coding-agent` and `@earendil-works/pi-tui` as `>=1.0.1`. Pi 1.0.0 is not supported: it includes codemode but lacks `registerToolRenderer`, which was introduced in 1.0.1. A startup capability check also reports a clear upgrade requirement if the renderer API is unavailable.
-
-Public APIs used: `registerToolRenderer`, `tool_execution_start/end`, `tool_result`, `parentToolCallId`, `createWriteToolDefinition`, and `generateDiffString`.
-
-## Installation
-
-Install the released version directly from GitHub:
+Requires **Pi >=1.0.1** and **Node.js >=22.19**. Pi 1.0.0 lacks the renderer API this extension needs. `codemode` must be active; this extension does not enable it or any disabled file tool.
 
 ```bash
-pi install git:github.com/hyein-cbio/pi-codemode-diff@v0.1.4
+pi install npm:pi-codemode-diff@0.1.5
 ```
 
-You can also install the released package from npm:
+Run `/reload` in an existing session. Alternatively, install this release from Git:
 
 ```bash
-pi install npm:pi-codemode-diff
+pi install git:github.com/hyein-cbio/pi-codemode-diff@v0.1.5
 ```
 
-Run `/reload` in an existing Pi session after installation.
+### Optional OpenCode tool
 
-## Local usage
-
-Replace `/path/to/pi-codemode-diff` in the examples below with the absolute path to your local checkout.
-
-Try the extension for one invocation without adding it to your settings:
+`codemode_o` is provided by a separate extension, not bundled here:
 
 ```bash
-pi -e /path/to/pi-codemode-diff/src/index.ts
+pi install npm:pi-opencode-mode@0.1.0
 ```
 
-Install the local package persistently:
+Load both extensions and run `/reload`. Either load order works. Only the exact names `codemode` and `codemode_o` establish capture roots; prefix-like tools do not.
 
-```bash
-pi install /path/to/pi-codemode-diff
-```
+The original tool still renders its script, output, warnings and duration. Its result content, structured content, script return values, usage and success/error status are unchanged. Permissions, activation, file mutation queues and diff budgets are unchanged too. OpenCode's own syntax/execution limits still apply: use `return` or `await tools.*`, not Pi-only `text()`. This extension never delegates or replays failed scripts.
 
-In an existing Pi session, run `/reload` after installation. Run `/reload` again after changing the source. You do not need to install the package twice or copy it into the global extensions directory.
-
-The package does not bundle duplicate copies of host-provided modules. Pi installs the `diff` runtime dependency for npm/git installations. For a local checkout, run `npm install --omit=dev --omit=peer --ignore-scripts` before loading it (or `npm ci` for development); Pi does not install local-package dependencies.
-
-## PiG compatibility
-
-A native Go implementation is available in [`native/pig/`](native/pig/README.md). Its single factory supports both Go source subprocess loading and fused Piglet Binaries. See that module's README for setup, validation, and the file mutation queue boundary.
-
-Native-only source archives are published separately in the [v0.1.4-pig GitHub release](https://github.com/hyein-cbio/pi-codemode-diff/releases/tag/v0.1.4-pig). For a persistent native installation from the repository root, run `pig install "$PWD/native"`; [`native/package.json`](native/package.json) declares the Go extension path. Do not use `pig install "$PWD/native/pig"`: that is an individual extension, loadable with `-e`, not an installable package. Load only one implementation. The repository-root package and the npm package continue to contain the TypeScript implementation only.
-
-On PiG, the extension executes both `write` and `edit` through one shared per-file queue. The TypeScript path reuses both SDK tool definitions; the Go source and fused paths share one native queue. This fixes concurrent dependent edits failing or being overwritten by queued writes. Actual Pi/PiG parity tests pass across all three PiG paths; see the [cross-host parity report](native/pig/PARITY.md). Pi continues to use its existing execution path. Load one implementation, and avoid another extension overriding either tool independently.
-
-PiG's Node subprocess renderer API has a documented limitation ([D89](https://github.com/MichaelKinsy/PiG/blob/main/docs/parity/DIVERGENCES.md)): `next()` returns a marker, not callable render functions. This extension therefore does **not** replace or wrap PiG's codemode renderer.
-
-Only when running inside PiG's Node extension runtime:
-
-- Completed codemode calls with captured changes append a `pi-codemode-diff:pig` custom entry, labeled with the parent call ID. The original script, nested call status, and output remain under PiG's control.
-- The entry uses the same **3-change / 8-visual-line preview**, diff colors, sanitization, and expanded view as Pi. Use Ctrl+O to toggle expansion.
-- Custom entries are persisted but **excluded from model context**. Parent result metadata is still recorded; `content`, `structuredContent`, script values, and success/failure are unchanged.
-- Diffs appear after the parent call completes, not as a live partial preview. Concurrent calls can finish out of order; the parent ID identifies each entry.
-- Newly recorded entries work after resume/reload. Older PiG sessions with only `details.piCodemodeDiff` and no custom entry are not backfilled.
-
-Host detection checks PiG's SDK shim `__runtime()` and requires its `api` to be the exact extension API object. It does not infer PiG from a missing renderer, `.pig` paths, or inherited environment variables. This private shim contract is intentionally fail-closed: if PiG removes it, the PiG display fallback will not activate. Normal Pi always keeps the original synchronous renderer-composition path and never imports the PiG-only `src/pig.ts` module.
-
-For local PiG use:
-
-```bash
-pig -e /path/to/pi-codemode-diff/src/index.ts
-# Or install persistently, then /reload in an existing session:
-pig install /path/to/pi-codemode-diff
-```
-
-### Local executable verification
-
-Latest-release check (2026-10-16): **Pi 1.3.0** and **PiG 0.4.1+1.0.3** run this extension in the tested scenarios, including Go source and fused delivery. Type checking and 89 tests pass against both the existing SDK and 1.3.0. Released PiG still ignores `tool_call` input rewrites made by other extensions, even with this extension disabled; its main branch contains the host fix. The strict parity gate retains those two release differences. See the [latest compatibility report](native/pig/COMPATIBILITY.md).
-
-The PiG compatibility path was also checked with installed **Pi 1.0.3** and **PiG 0.4.1+1.0.3** executables, not only a mocked renderer. Isolated offline sessions with a scripted local provider compared pre-change and updated extension behavior: direct write, nested create/edit/overwrite, long diffs, read-only calls, and script failure after a successful write. Model-facing results (excluding elapsed time), success/error status, and written bytes matched. Only PiG produced the additional custom entries.
-
-The installed PiG interactive TUI was exercised through a PTY: live completed-entry display, collapsed preview, Ctrl+O expansion/collapse, saved-session resume, and `/reload` all passed. These checks cover those versions and scenarios, not every host feature, every third-party extension stack, or byte-for-byte UI parity. PiG still uses separate completion-time entries rather than Pi's inline/live diff section.
-
-### Revalidate after a PiG upgrade
-
-Because host detection depends on a private SDK shim, revalidate compatibility for each PiG version you intend to support:
-
-1. Record `pi --version` and `pig --version`. Run `npm run typecheck` and `npm test` to check the unchanged Pi path and unit regressions.
-2. Run `PIG_NODE_RUNTIME_DIR=/path/to/PiG/coding/extension/host/subprocess/runtime-node npm test` with runtime sources matching the installed PiG version. Confirm that the PiG loader test passes, rather than being skipped; this checks the shim identity, lazy loading, and entry renderer registration.
-3. In an isolated temporary workspace, load the extension with the installed `pig` executable and exercise the [manual session checks](#manual-session-checks). Verify the completed `File changes` entries, Ctrl+O expansion/collapse, session resume, and `/reload`. Repeat the Pi checks to confirm that no PiG custom entries appear there.
-4. If the shim identity check stops matching, investigate PiG's current runtime contract before updating `src/host.ts`. Do not substitute executable names, inherited environment variables, or missing render functions as host detection. Update the verified-version record only after both loader and executable checks pass.
+`pi-opencode-mode@0.1.0` is a development dependency for integration tests only; ordinary installation of this package does not install it.
 
 ## Preview and full view
 
-- Collapsed: previews the first **3 changes**, with **8 visual lines** of diff per change.
-- Expanded: use Pi's tool-output expansion key, **Ctrl+O** by default.
-- Press Ctrl+O again to return to the preview.
-- If you customize the keybinding in Pi, the expansion hint uses your configured key.
-- Long lines wrap to the terminal width before the preview limit is applied.
-- The header distinguishes per-call changes from distinct recorded paths, e.g. `File changes (5) · 2 files`. Repeated changes to the same path count once toward the file total but remain separate changes; they are not merged into a cumulative diff. Paths are compared exactly as recorded, without resolving relative/absolute aliases, symlinks, or case differences.
-- When a change has no retained diff, the header adds a summary such as `· 2 diffs unavailable`, including changes outside the collapsed preview. This covers safety-budget omissions, binary/unreadable content, missing edit diffs, and diff-generation failures; each change retains its detailed notice. Expanding cannot recover these diffs. Empty diffs (such as unchanged writes or empty-file creation) and diffs merely folded by the preview are not counted as unavailable. The summary is display-only and also applies to resumed sessions.
-- Single-line replacements highlight changed words with inverse video: green on added lines, red on removed lines, like Pi's native edit diff. This works in both preview and expanded views, for captured edits and write overwrites, including PiG entries. Like Pi, only a consecutive block with exactly one removed and one added line gets word highlighting; larger replacement blocks and standalone additions/deletions keep line colors. Leading indentation is not highlighted. Whitespace changes that cannot be reconstructed exactly keep their original lines without word highlighting. Very large or complex word comparisons also fall back to line colors to keep rendering responsive.
+- Collapsed results show the first **3 changes**, with **8 visual lines per diff**.
+- **Ctrl+O** expands/collapses tool output; customized Pi expansion bindings are reflected in the hint.
+- Expansion shows all retained diff hunks, not the entire unchanged file.
+- Changes to the same path remain separate, in call-start order. The header also counts distinct recorded paths, without resolving aliases or symlinks.
+- Unavailable diffs are counted across the entire call, including changes outside the preview. Each change retains an explanatory notice. Empty diffs and preview-folded diffs are not counted as unavailable.
+- Single-line replacements highlight changed words. Large/complex comparisons and whitespace changes that cannot be reconstructed exactly keep line colors instead.
 
-Full view means **all change hunks in a retained diff**, not the entire unchanged file. The surrounding context lines and omission markers produced by Pi's diff generator remain intact. Diffs omitted by the safety budgets below cannot be recovered by expanding the view.
+## Capture and persistence
 
-Preview limits apply only to rendering. You can adjust `PREVIEW_CHANGES` and `PREVIEW_LINES` in `src/render.ts`.
+Successful nested edits reuse the edit tool's `details.diff`. Nested writes delegate to Pi's built-in write definition, taking a bounded previous-content snapshot inside its file mutation queue before writing. Direct edit/write calls keep their original behavior and do not acquire parent diff metadata.
 
-### Diff safety budgets
+Display data uses the unchanged version-1 `details.piCodemodeDiff` schema. Parallel parent calls are isolated by call ID, including mixed `codemode`/`codemode_o` calls. Helper-tool descendants are captured as well. Display order does not imply a global mutation order across parallel calls.
 
-The extension limits its display data independently of the preview:
+Newly recorded diffs survive session resume and extension reload. Older sessions without captured diffs cannot be backfilled. A script failure does not erase writes already completed; observed writes that later report an error or cancellation show that status alongside the diff.
 
-| Stage | UTF-8 byte limit | Logical line limit |
-|---|---:|---:|
-| Each previous/new write input, before diff generation | 256 KiB | 2,000 |
-| Each stored write/edit diff | 64 KiB | 2,000 |
-| Total retained diffs per parent codemode call | 256 KiB | 8,000 |
+### Display safety budgets
 
-Limits are inclusive; exceeding either dimension omits the **entire diff**, rather than storing a partial diff. LF, CRLF, and CR count as line endings; a final ending does not add another empty line. Byte limits also cover giant single-line JSON and multibyte text. The constants live in `src/limits.ts`.
+| Data | UTF-8 bytes | Logical lines |
+| --- | ---: | ---: |
+| Each previous/new write input | 256 KiB | 2,000 |
+| Each retained edit/write diff | 64 KiB | 2,000 |
+| Total retained diffs per parent call | 256 KiB | 8,000 |
 
-- Oversized writes show `Diff omitted: file too large` with previous/new byte sizes when available. Output-limit and parent-budget omissions show their own reason. No snapshot, full diff, hash, or backup is retained for an omitted write.
-- Existing-file snapshots check the open descriptor's size and read at most 256 KiB plus one overflow-detection byte. A file growing after the size check cannot trigger an unbounded read. If the new content is already over budget, the previous content is not read.
-- The shared storage budget applies to both write and edit diffs. It never alters the edit tool's original result or limits Pi's own edit diff computation.
-- Parallel parent calls have separate budgets. Within a parent, capture completion order determines which diffs fit; display order remains call-start order. Small later diffs may still fit after a larger one is omitted.
-- Resumed older sessions receive the same display limits, without rewriting their saved data. Existing oversized session files are not reduced retroactively.
-- These are **display-only limits**: file bytes, tool success/failure, model-facing results, and direct write behavior are unchanged. They bound retained diff payloads, not all tool arguments, metadata, or the total size of a long session.
+Limits are inclusive. Exceeding either dimension omits the **whole diff**, with a notice; it does not restrict the write. Existing-file snapshot reads are bounded to 256 KiB plus one overflow byte, even if a file grows after its size check. Oversized new inputs skip reading previous content.
 
-## How it works
-
-### edit
-
-Pi's existing edit tool executes unchanged. The extension collects `details.diff` from successful edit results inside codemode. Failed edits are not shown as successful changes. If a custom edit tool does not provide a diff, the extension displays a notice instead.
-
-### write
-
-The built-in write tool does not return a diff. The extension therefore registers a tool with the same name and delegates to Pi's `createWriteToolDefinition()`.
-
-- Direct write calls use the original execution, result, and renderer. No previous-content snapshot is read.
-- Writes inside codemode take a bounded previous-content snapshot **inside Pi's file mutation queue**, immediately before writing, and generate a diff after the write succeeds when both inputs fit the safety budgets.
-- New files show their content as additions. Empty-file creation is also reported.
-- Existing files show the diff between the actual previous content and the new content.
-- Unreadable previous content, binary files, and invalid UTF-8 produce a notice that a text diff is unavailable. The extension does not guess the previous content or treat these cases as new files, and it does not block an otherwise valid write.
-- Diff-generation failures produce a display notice rather than turning a successful write into a failed tool call.
-
-The original write schema, description, success message, directory creation, file mutation queue, and renderer are reused. Registering the extension does not activate a disabled write tool.
-
-### Display data and model context
-
-```text
-Nested edit/write
-    → Session-local capture
-    → Parent codemode result's details.piCodemodeDiff
-    → Existing codemode output + additional diff rendering
-```
-
-In Pi, display data is preserved **only in the parent result's `details`**, using this format. PiG additionally stores the same data in the non-context custom entry described above:
-
-```typescript
-{
-  piCodemodeDiff: {
-    version: 1,
-    changes: [
-      {
-        toolCallId: "parent/1",
-        tool: "edit",
-        path: "src/main.ts",
-        kind: "edit",
-        diff: "-4 before\n+4 after"
-      }
-    ]
-  }
-}
-```
-
-- Diffs are not added to model-facing `content`, `structuredContent`, or script return values.
-- Other codemode metadata, such as `details.calls`, is preserved.
-- With session persistence enabled, newly captured diffs remain available after resuming a session or reloading extensions.
-- Diffs from sessions recorded before installation cannot be recovered retroactively, because their nested results were not stored.
-- Parallel codemode calls are isolated by call ID.
-- Nested paths are also tracked when a tool inside codemode calls edit or write in turn.
-- Changes are displayed in call-start order. This does not guarantee a global file-mutation order across parallel operations.
-
-If a script explicitly prints file content with `text()`, that content still enters model context through codemode's normal behavior. This extension does not remove existing output or context.
+Binary, invalid UTF-8, nonregular and unreadable previous content produce notices rather than guessed diffs. Write diff normalization of CRLF/CR line endings and the UTF-8 BOM is display-only; exact written bytes are unchanged. Normalization-only changes are reported. No previous-file backup is retained.
 
 ## Scope and limitations
 
-This extension improves **change visibility**. It does not add undo tools, checkpoints, Git operations, backup files, context injection, or model behavior instructions. It does not change the existing model-driven revert workflow.
+- Changes through bash, Python, formatters or external processes are not detected.
+- Other extensions replacing `write` or `edit`, including remote/custom filesystem tools, need compatible coordination; replacements are not automatically composed.
+- Transcript compactors may hide collapsed diffs. Expand output or check extension conflicts.
+- Displayed paths and contents are sanitized against terminal control characters. Stored diff data is unchanged and may contain sensitive source code: review sessions before sharing them.
+- Budgets bound per-call diff payloads, not total session size, tool arguments or all metadata. Retained diffs increase session storage and rendering work, not model context.
+- This is visibility tooling, not undo, checkpoints, backups or byte-exact recovery. Capture is not guaranteed through forced termination or every cancellation path.
+- Print/JSON/RPC model-facing result content remains unchanged. Extra inline UI is rendered by Pi's terminal components. Explicitly returning/printing file contents from a script still sends those contents to the model.
 
-- File changes made through bash, Python, formatters, or external processes are not detected.
-- Other extensions that replace write, including remote or custom filesystem implementations, are not automatically composed with this wrapper. Check for conflicts when using packages that change file-writing behavior.
-- Extensions such as compact-transcript may hide diffs in the collapsed view by reducing tool results to one-line summaries. Disable those extensions or expand the tool output if needed.
-- Write diffs normalize CRLF/CR line endings and the UTF-8 BOM for display. Changes hidden by normalization are reported with a notice. These diffs are not byte-exact recovery records.
-- Original files are not saved separately. The previous-content snapshot is not retained after computing the write diff.
-- Retained diffs increase **session file size and rendering cost**, rather than model context usage. The safety budgets bound each diff and each parent call's diff payload; many calls can still accumulate a large session.
-- Terminal control characters in file content and paths are replaced for display so they cannot execute as terminal escape sequences. The stored diff data is unchanged.
-- Capture is not guaranteed through forced process termination or every cancellation path. If a write completes before the tool reports an error or cancellation, the observed write and that status are displayed together.
-- Result content remains unchanged in print, JSON, and RPC modes. The additional terminal diff UI uses Pi's TUI renderer.
+## PiG users
 
-Stored diffs may contain source code or sensitive content. Review sessions before exporting or sharing them.
+The recommended separately published package is [pi-codemode-diff-native](https://www.npmjs.com/package/pi-codemode-diff-native); its [own installation guide](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/README.md) covers Go source and fused binaries.
 
-## Development and testing
+This TypeScript package also includes a PiG-specific entry. PiG cannot wrap callable `next()` renderers across its Node subprocess boundary, so that entry preserves the parent card and appends persisted, non-model-facing completed diff entries instead of Pi's inline/live section.
+
+PiG 0.5.1 removed the private SDK export used by automatic detection. **Do not use the default package entry on that host.** Select the explicit file from this package instead, replacing the placeholder with its absolute installed/extracted directory:
 
 ```bash
-cd /path/to/pi-codemode-diff
+pig -e /absolute/path/to/pi-codemode-diff/src/pig-index.ts
+```
+
+Do not load it alongside the default entry or the native implementation. Older PiG hosts exposing the exact `__runtime().api` identity can still use automatic detection. No environment-variable, executable-name, path-name or missing-renderer heuristic is used. Old PiG entries without a supported parent name render as `codemode`; metadata-only sessions are not backfilled.
+
+## Local development
+
+From a full repository checkout:
+
+```bash
 npm ci
 npm run typecheck
 npm test
 npm run test:coverage
-
-# Optional: exercise PiG's actual Node SDK shim and jiti extension loader.
-# Use a PiG checkout's coding/extension/host/subprocess/runtime-node directory:
-PIG_NODE_RUNTIME_DIR=/path/to/PiG/coding/extension/host/subprocess/runtime-node npm test
+python3 -m unittest discover -s native/tests -p 'test_*.py'
 ```
 
-The test suite has five layers:
+Try the source without changing Pi settings:
 
-- **Unit and event-hook tests:** capture isolation and ordering, metadata validation and serialization, unchanged model-facing result content, lifecycle cleanup, and renderer composition.
-- **Filesystem edge cases:** new and overwritten files, empty files, parallel writes through symlinks, cancellation before and after a mutation, unreadable snapshots, binary content, invalid UTF-8, and exact written bytes despite display normalization.
-- **Real Pi integration:** the SDK's actual extension loader, event pipeline, codemode sandbox, and built-in tools run against temporary workspaces. Tests cover direct-call compatibility, disabled tools, nested helper calls, parallel codemode calls, blocked writes, final errors introduced by another result handler, persistent session resume, and extension reload. Pi's native tool component is also exercised for diff expansion and theme changes.
-- **PiG compatibility tests:** fail-closed host identification, isolated final entries, persisted entry rendering, expansion, sanitization, and final nested error status. The optional PiG loader fixture uses PiG's real runtime/SDK modules with stubbed host append IPC; it is not an end-to-end terminal UI test.
-- **Package smoke test:** `npm pack` creates an artifact in a temporary directory. The test checks its file list, extracts it, and loads the extracted extension through real Pi.
-
-Integration tests use Pi's local faux provider with scripted responses, not a remote model. Credentials, settings, session files, and workspaces are isolated in temporary directories. Tests do not modify your global Pi configuration.
-
-`npm run test:coverage` uses c8 with TypeScript source maps and writes a machine-readable report to `coverage/coverage-summary.json`. Coverage is limited to this package's `src` files; it is not a claim of exhaustive coverage of Pi itself. The lockfile makes development dependency installation reproducible.
-
-The POSIX permission test is skipped for root users and on Windows. Symlink and tar-based package tests are also skipped on Windows. Terminal keyboard delivery and interactions with your personal extension stack still require the manual checks below.
-
-### Manual session checks
-
-Run `pi -e /path/to/pi-codemode-diff/src/index.ts` from a separate temporary working directory, replacing the placeholder with the path to your checkout. If codemode is inactive, add it to the active tool selection first.
-
-1. Write a new file inside codemode, then edit it: verify the creation and replacement diffs.
-2. Overwrite an existing file with write: verify deletions of the previous content and additions of the new content.
-3. Make changes exceeding 30 lines across several files: check the default preview, Ctrl+O full view, and collapse toggle.
-4. Use a narrow terminal, resize the window, and switch themes: check line widths and colors.
-5. Call edit and write directly, outside codemode: verify the original Pi display.
-6. Change several files in parallel and write the same file sequentially or in parallel: verify per-call diffs.
-7. Make a script fail after a successful write: verify that the applied write's diff remains visible.
-8. Resume the session and run `/reload`: verify that captured diffs are displayed again.
-
-## File layout
-
-```text
-src/index.ts     Event wiring and parent-result metadata persistence
-src/capture.ts   Codemode ancestry and session-local capture state
-src/changes.ts   Display metadata and write diff generation
-src/limits.ts    Write input, stored diff, and parent-call safety budgets
-src/write.ts     Built-in write delegation and in-queue snapshots
-src/render.ts    Renderer composition, previews, and full view
-src/diff.ts      Theme-aware line colors and single-line word highlighting
-src/host.ts      Fail-closed PiG host identification
-src/pig.ts       Lazily loaded PiG-only non-context entry display
-test/            Unit, filesystem, real-Pi integration, and package tests
+```bash
+pi -e /absolute/path/to/pi-codemode-diff/src/index.ts
 ```
+
+Pi installs the `diff` runtime dependency for npm/git installations. It does not install dependencies for a local path: run `npm install --omit=dev --omit=peer --ignore-scripts` in the package root for local runtime use, or `npm ci` for development. Host-provided Pi modules are peers, not bundled runtime dependencies. `/reload` picks up source changes.
+
+Tests cover capture isolation, result preservation, bounded snapshots/diffs, filesystem edge cases, renderer composition, saved metadata, reload/resume and both tool roots. Package tests inspect both independent npm artifacts and load the extracted TS entries through Pi. Offline integration fixtures isolate workspaces, settings, credentials and sessions; they use scripted local models.
+
+Type checking and SDK tests have been checked with Pi 1.0.2 and 1.4.0. Actual Pi 1.4.0 / PiG 0.5.1 checks cover TypeScript, Go source and fused delivery, including PTY expansion/reload/resume. These are bounded scenario/version checks, not universal host or third-party-stack compatibility. The optional direct PiG Node-loader fixture needs a matching complete runtime tree and is skipped by default.
+
+See [OpenCode parity](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5/native/pig/OPENCODE.md) for exact scope and evidence, [CHANGELOG.md](CHANGELOG.md) for release changes, and the [issue tracker](https://github.com/hyein-cbio/pi-codemode-diff/issues) for reports.
+
+## License
+
+[MIT](LICENSE).

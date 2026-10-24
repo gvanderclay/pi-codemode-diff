@@ -83,7 +83,7 @@ func TestCaptureIsolationOrderingBudgetsAndLifetime(t *testing.T) {
 		t.Fatal("direct call captured")
 	}
 	c.start("a", "codemode", "")
-	c.start("b", "codemode", "")
+	c.start("b", "codemode_o", "")
 	c.start("a/1", "helper", "a")
 	c.start("a/1/1", "write", "a/1")
 	c.start("a/2", "edit", "a")
@@ -129,9 +129,13 @@ func TestCaptureIsolationOrderingBudgetsAndLifetime(t *testing.T) {
 func TestCaptureConcurrentParents(t *testing.T) {
 	c := newCapture()
 	var wg sync.WaitGroup
-	for _, id := range []string{"a", "b", "c", "d"} {
+	for i, id := range []string{"a", "b", "c", "d"} {
 		wg.Go(func() {
-			c.start(id, "codemode", "")
+			name := "codemode"
+			if i%2 == 1 {
+				name = "codemode_o"
+			}
+			c.start(id, name, "")
 			for i := range 100 {
 				child := id + strings.Repeat("x", i+1)
 				c.start(child, "write", id)
@@ -273,7 +277,7 @@ func TestRendererExpansionSanitizationAndNarrowWidths(t *testing.T) {
 	items := []change{{Tool: "write", Kind: "create", Path: "evil\n\x1b[2J", Diff: &diff, ToolReportedError: true}, {Tool: "edit", Kind: "edit", Path: "b"}, {Tool: "write", Kind: "create", Path: "c"}, {Tool: "write", Kind: "create", Path: "fourth"}}
 	for _, width := range []int{1, 2, 8, 16, 80} {
 		for _, expanded := range []bool{false, true} {
-			lines := renderChanges("root", items, expanded, width, sdk.UITheme{})
+			lines := renderChanges("codemode", "root", items, expanded, width, sdk.UITheme{})
 			for _, line := range lines {
 				plain := sgr.ReplaceAllString(line, "")
 				if uniseg.StringWidth(plain) > width || strings.ContainsRune(plain, '\x1b') {
@@ -282,8 +286,8 @@ func TestRendererExpansionSanitizationAndNarrowWidths(t *testing.T) {
 			}
 		}
 	}
-	collapsed := sgr.ReplaceAllString(strings.Join(renderChanges("root", items, false, 80, sdk.UITheme{}), "\n"), "")
-	full := sgr.ReplaceAllString(strings.Join(renderChanges("root", items, true, 80, sdk.UITheme{}), "\n"), "")
+	collapsed := sgr.ReplaceAllString(strings.Join(renderChanges("codemode", "root", items, false, 80, sdk.UITheme{}), "\n"), "")
+	full := sgr.ReplaceAllString(strings.Join(renderChanges("codemode", "root", items, true, 80, sdk.UITheme{}), "\n"), "")
 	if !strings.Contains(collapsed, "more lines") || strings.Contains(collapsed, "fourth") || !strings.Contains(full, "fourth") || !strings.Contains(full, "error or cancellation") || !strings.Contains(full, `evil\n`) {
 		t.Fatal("bad preview or expansion")
 	}
@@ -301,6 +305,6 @@ func BenchmarkCollapsedRender(b *testing.B) {
 	item := change{Tool: "write", Kind: "create", Path: "large", Diff: new(strings.Repeat("+1 line\n", 2000))}
 	b.ReportAllocs()
 	for b.Loop() {
-		renderChanges("root", []change{item}, false, 80, sdk.UITheme{})
+		renderChanges("codemode", "root", []change{item}, false, 80, sdk.UITheme{})
 	}
 }

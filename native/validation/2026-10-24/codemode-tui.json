@@ -1,0 +1,62 @@
+[
+  {
+    "mode": "pi-typescript",
+    "custom_entries": 0,
+    "parent_diff_records": 2,
+    "presentation": "inline",
+    "checks": [
+      "preview",
+      "expand",
+      "collapse",
+      "reload",
+      "write_after_reload",
+      "resume",
+      "expand_after_resume"
+    ]
+  },
+  {
+    "mode": "pig-typescript",
+    "custom_entries": 2,
+    "parent_diff_records": 2,
+    "presentation": "completed custom entry",
+    "checks": [
+      "preview",
+      "expand",
+      "collapse",
+      "reload",
+      "write_after_reload",
+      "resume",
+      "expand_after_resume"
+    ]
+  },
+  {
+    "mode": "pig-source",
+    "custom_entries": 2,
+    "parent_diff_records": 2,
+    "presentation": "completed custom entry",
+    "checks": [
+      "preview",
+      "expand",
+      "collapse",
+      "reload",
+      "write_after_reload",
+      "resume",
+      "expand_after_resume"
+    ]
+  },
+  {
+    "mode": "pig-fused",
+    "custom_entries": 2,
+    "parent_diff_records": 2,
+    "presentation": "completed custom entry",
+    "checks": [
+      "preview",
+      "expand",
+      "collapse",
+      "reload",
+      "write_after_reload",
+      "resume",
+      "expand_after_resume"
+    ]
+  }
+]

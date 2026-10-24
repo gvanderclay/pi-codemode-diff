@@ -5,6 +5,7 @@ import {
   type Theme,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Spacer, Text, truncateToWidth, type Component } from "@earendil-works/pi-tui";
+import { isCodemodeTool } from "./tools.ts";
 import type { Capture } from "./capture.ts";
 import { countChanges, readChanges, type Change } from "./changes.ts";
 import { coloredDiff } from "./diff.ts";
@@ -121,7 +122,7 @@ class WrappedResult extends Container {
 
 export function registerDiffRenderer(pi: ExtensionAPI, capture: Capture): void {
   pi.registerToolRenderer((name, next) => {
-    if (name !== "codemode") return next();
+    if (!isCodemodeTool(name)) return next();
     const base = next();
     const renderBase = base?.renderResult;
     // Do not invent a replacement codemode renderer when the host has none.

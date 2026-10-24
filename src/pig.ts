@@ -1,5 +1,6 @@
 import { createEditToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Container, Text } from "@earendil-works/pi-tui";
+import { isCodemodeTool } from "./tools.ts";
 import type { Capture } from "./capture.ts";
 import { asRecord, DETAILS_KEY, readChanges } from "./changes.ts";
 import { diffSection, inlineText } from "./render.ts";
@@ -11,7 +12,7 @@ export const PIG_ENTRY_TYPE = "pi-codemode-diff:pig";
  * codemode card untouched and draw a separate, non-model-facing custom entry.
  * Publishing at tool_execution_end includes final nested tool error statuses.
  */
-export function registerPiGDisplay(pi: ExtensionAPI, capture: Capture): (toolCallId: string) => void {
+export function registerPiGDisplay(pi: ExtensionAPI, capture: Capture): (toolCallId: string, toolName: "codemode" | "codemode_o") => void {
   // PiG's host edit queue cannot coordinate with a Node write override. Execute
   // both definitions in this runtime so their SDK mutation queue is shared.
   // Preserve the complete native definition, including argument preparation,
@@ -22,13 +23,15 @@ export function registerPiGDisplay(pi: ExtensionAPI, capture: Capture): (toolCal
     const changes = readChanges(data);
     if (typeof data?.toolCallId !== "string" || !changes?.length) return undefined;
     const component = new Container();
-    component.addChild(new Text(theme.fg("muted", `codemode ${inlineText(data.toolCallId)}`), 0, 0));
+    // Entries recorded before toolName was introduced belong to native codemode.
+    const toolName = isCodemodeTool(data.toolName) ? data.toolName : "codemode";
+    component.addChild(new Text(theme.fg("muted", `${toolName} ${inlineText(data.toolCallId)}`), 0, 0));
     component.addChild(diffSection(changes, options.expanded, theme));
     return component;
   });
 
-  return (toolCallId) => {
+  return (toolCallId, toolName) => {
     const details = capture.details(toolCallId);
-    if (details) pi.appendEntry(PIG_ENTRY_TYPE, { toolCallId, [DETAILS_KEY]: details });
+    if (details) pi.appendEntry(PIG_ENTRY_TYPE, { toolCallId, toolName, [DETAILS_KEY]: details });
   };
 }
