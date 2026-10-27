@@ -1,0 +1,60 @@
+{
+  "host": {
+    "pi": "1.4.0",
+    "pi_cli_sha256": "e79626f2dd6f94aa45d30f3fa63cd84319a6eefcd150b353cfaf274366926774",
+    "pi_permission_system": "41.0.0",
+    "window": "120x40"
+  },
+  "scenarios": [
+    {
+      "scenario": "edit-tool-ask",
+      "edited_path": "target.txt",
+      "permission": {
+        "*": "allow",
+        "path": {
+          "*": "allow"
+        },
+        "external_directory": "allow",
+        "edit": "ask"
+      },
+      "parent_diff_records": 1,
+      "checks": [
+        "proposal_visible_while_waiting",
+        "file_unchanged_while_waiting",
+        "marker_hidden_collapsed",
+        "expand_while_waiting",
+        "collapse_while_waiting",
+        "deny_unverified_with_error",
+        "file_unchanged_after_deny",
+        "allow_real_diff",
+        "file_changed_after_allow",
+        "saved_details_completed_only"
+      ]
+    },
+    {
+      "scenario": "protected-path-ask",
+      "edited_path": "protected/config.json",
+      "permission": {
+        "*": "allow",
+        "path": {
+          "*": "allow",
+          "*protected/*": "ask"
+        },
+        "external_directory": "allow"
+      },
+      "parent_diff_records": 1,
+      "checks": [
+        "proposal_visible_while_waiting",
+        "file_unchanged_while_waiting",
+        "marker_hidden_collapsed",
+        "expand_while_waiting",
+        "collapse_while_waiting",
+        "deny_unverified_with_error",
+        "file_unchanged_after_deny",
+        "allow_real_diff",
+        "file_changed_after_allow",
+        "saved_details_completed_only"
+      ]
+    }
+  ]
+}

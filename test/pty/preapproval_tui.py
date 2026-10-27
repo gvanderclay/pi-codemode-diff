@@ -1,32 +1,63 @@
 #!/usr/bin/env python3
-"""Drive the real Pi binary in tmux: the codemode card must show the proposal while a gate prompt waits.
+"""Actual PTY checks: the pre-approval proposal is shown while a real permission prompt waits.
 
-Scripted local model only (no network model calls). Usage:
-  python3 test/pty/preapproval_tui.py --pi /path/to/pi-coding-agent/dist/bundle/cli.js --output /tmp/new-empty-dir
+Follows native/tests/cross_host_tui.py (Python pty, fixed window, transcript
+predicates, draining shutdown), but needs only Pi and the permission package,
+not PiG. Offline: a local scripted model answers; no network model calls.
+
+  python3 test/pty/preapproval_tui.py \
+    --pi <pi-coding-agent>/dist/bundle/cli.js \
+    --permission-system <path to @gotgenes/pi-permission-system> \
+    [--output <new empty dir>]
 """
 import argparse
+import fcntl
+import hashlib
 import http.server
 import json
 import os
 import pathlib
-import shlex
+import pty
+import re
+import select
 import shutil
+import struct
 import subprocess
 import tempfile
+import termios
 import threading
 import time
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-SOCKET = "pi-codemode-diff-preapproval"
-CODE = "\n".join([
-    'try { await tools.edit({ path: "target.txt", edits: [{ oldText: "alpha", newText: "beta" }] }); } catch { text("first blocked"); }',
-    'await tools.edit({ path: "target.txt", edits: [{ oldText: "alpha", newText: "gamma" }] });',
-])
+ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)")
+CTRL_O, DOWN, ENTER = b"\x0f", b"\x1b[B", b"\r"
+# Built at run time so the marker never appears in the script text or call arguments.
+MARKER = "PREVIEW-MARKER-"
+UNVERIFIED = "Did not complete \u2014 changes not verified."
+
+# Each scenario: the edited path, a permission config whose ask decides it, and the gate's denial text.
+SCENARIOS = {
+    # A tool rule: every edit asks.
+    "edit-tool-ask": ("target.txt", {"*": "allow", "path": {"*": "allow"}, "external_directory": "allow", "edit": "ask"}, "denied this 'edit' call"),
+    # The originally reported case: a protected-path ask from the path gate.
+    "protected-path-ask": ("protected/config.json", {"*": "allow", "path": {"*": "allow", "*protected/*": "ask"}, "external_directory": "allow"}, "denied this 'path' call for tool 'edit'"),
+}
+
+
+def script(path):
+    lines = ", ".join(f'"line {i}"' for i in range(1, 15))
+    return "\n".join([
+        f"const lines = [{lines}, \"{MARKER[:8]}\" + \"{MARKER[8:]}\" + 15, \"line 16\"];",
+        f'try {{ await tools.edit({{ path: "{path}", edits: [{{ oldText: "alpha", newText: lines.join("\\n") }}] }}); }} catch {{ text("first denied"); }}',
+        f'await tools.edit({{ path: "{path}", edits: [{{ oldText: "alpha", newText: "gamma" }}] }});',
+    ])
 
 
 class Model:
+    """OpenAI-compatible stream: one codemode call, then a final text turn."""
+
     def __init__(self):
-        self.requests = []
+        self.requests, self.code = [], ""
         owner = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
@@ -34,17 +65,14 @@ class Model:
                 pass
 
             def do_POST(self):
-                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-                owner.requests.append(body)
+                owner.requests.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
                 if len(owner.requests) == 1:
-                    call = {"index": 0, "id": "root", "type": "function", "function": {"name": "codemode", "arguments": json.dumps({"code": CODE})}}
+                    call = {"index": 0, "id": "root", "type": "function", "function": {"name": "codemode", "arguments": json.dumps({"code": owner.code})}}
                     delta, finish = {"role": "assistant", "tool_calls": [call]}, "tool_calls"
                 else:
                     delta, finish = {"role": "assistant", "content": "SCRIPTED_DONE"}, "stop"
-                chunks = [
-                    {"id": "x", "object": "chat.completion.chunk", "created": 1, "model": "verify", "choices": [{"index": 0, "delta": delta, "finish_reason": None}]},
-                    {"id": "x", "object": "chat.completion.chunk", "created": 1, "model": "verify", "choices": [{"index": 0, "delta": {}, "finish_reason": finish}]},
-                ]
+                chunks = [{"id": "x", "object": "chat.completion.chunk", "created": 1, "model": "verify", "choices": [{"index": 0, "delta": d, "finish_reason": f}]}
+                          for d, f in ((delta, None), ({}, finish))]
                 payload = ("".join("data: " + json.dumps(c) + "\n\n" for c in chunks) + "data: [DONE]\n\n").encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
@@ -53,112 +81,177 @@ class Model:
                 self.wfile.write(payload)
 
         self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join()
 
 
-def tmux(*args):
-    return subprocess.run(["tmux", "-L", SOCKET, *args], check=True, capture_output=True, text=True).stdout
+def verify(args, model, root, name):
+    path, permission, denial = SCENARIOS[name]
+    run = root / name
+    work, agent, home = run / "workspace", run / "agent", run / "home"
+    for directory in (work, agent, home):
+        directory.mkdir(parents=True)
+    target = work / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("alpha\n")
+    model.requests, model.code = [], script(path)
+    (agent / "models.json").write_text(json.dumps({"providers": {"local": {"api": "openai-completions", "baseUrl": f"http://127.0.0.1:{model.server.server_port}/v1", "apiKey": "placeholder", "models": [{"id": "verify", "name": "Local scripted", "reasoning": False, "input": ["text"], "contextWindow": 100000, "maxTokens": 4096}]}}}))
+    (agent / "settings.json").write_text(json.dumps({"compaction": {"enabled": False}, "retry": {"enabled": False}, "cacheWarming": "off", "quietStartup": True}))
+    config = agent / "extensions" / "pi-permission-system"
+    config.mkdir(parents=True)
+    (config / "config.json").write_text(json.dumps({"doublePressToConfirm": False, "permissionReviewLog": False, "permission": permission}))
+    env = os.environ.copy()
+    env.update(HOME=str(home), PI_CODING_AGENT_DIR=str(agent), PI_OFFLINE="1", PI_SKIP_VERSION_CHECK="1", TERM="xterm-256color", COLORTERM="truecolor")
+    cmd = [args.node, str(args.pi), "--offline", "--no-extensions", "-e", "builtin:codemode", "-e", str(REPO / "src/index.ts"),
+           "-e", str(args.permission_system), "--no-skills", "--no-prompt-templates", "--no-context-files",
+           "--tools", "read,edit,write,codemode", "--model", "local/verify", "--session-dir", str(run / "sessions"),
+           "Run the scripted check."]
+    master, slave = pty.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", args.rows, args.cols, 0, 0))
+    transcript = bytearray()
+
+    def wait(process, predicate, label, offset=0):
+        deadline = time.monotonic() + 30
+        text = ""
+        while time.monotonic() < deadline:
+            ready, _, _ = select.select([master], [], [], min(.2, max(0, deadline - time.monotonic())))
+            if ready:
+                try:
+                    chunk = os.read(master, 65536)
+                except OSError:
+                    chunk = b""
+                transcript.extend(chunk)
+                if b"\x1b[6n" in chunk:
+                    os.write(master, b"\x1b[1;1R")
+            text = ANSI.sub("", bytes(transcript[offset:]).decode("utf8", errors="replace"))
+            if predicate(text):
+                return text
+            if process.poll() is not None:
+                raise AssertionError((name, label, "exit", process.returncode, text[-2500:]))
+        raise AssertionError((name, label, "timeout", text[-2500:]))
+
+    def settle(process):
+        """Drain briefly so a key's redraw is complete before the next slice starts."""
+        time.sleep(.3)
+        wait(process, lambda _s: True, "drain")
+
+    def send(process, *keys):
+        for key in keys:
+            os.write(master, key)
+            time.sleep(.15)
+
+    def stop(process):
+        if process.poll() is None:
+            os.write(master, b"\x04")
+            # Keep draining: waiting without reading can block on a full PTY buffer (macOS).
+            for stage in range(3):
+                deadline = time.monotonic() + 5
+                while process.poll() is None and time.monotonic() < deadline:
+                    ready, _, _ = select.select([master], [], [], .1)
+                    if ready:
+                        try:
+                            transcript.extend(os.read(master, 65536))
+                        except OSError:
+                            break
+                if process.poll() is not None:
+                    break
+                if stage == 0:
+                    process.terminate()
+                else:
+                    process.kill()
+            process.wait(timeout=5)
+
+    hidden = "+ " + MARKER + "15"
+    checks = []
+    process = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, cwd=work, env=env, start_new_session=True)
+    try:
+        s = wait(process, lambda s: "Permission Required" in s and "Proposed changes (1)" in s and "more lines" in s, "proposal while the prompt waits")
+        assert "+ line 1" in s and "- alpha" in s, s[-2500:]
+        assert hidden not in s, "collapsed preview must hide the marker"
+        assert target.read_text() == "alpha\n"
+        checks += ["proposal_visible_while_waiting", "file_unchanged_while_waiting", "marker_hidden_collapsed"]
+        settle(process)
+        offset = len(transcript)
+        send(process, CTRL_O)
+        wait(process, lambda s: hidden in s and "ctrl+o collapse" in s, "Ctrl+O expands the proposal while the prompt waits", offset)
+        checks.append("expand_while_waiting")
+        settle(process)
+        offset = len(transcript)
+        send(process, CTRL_O)
+        s = wait(process, lambda s: "more lines" in s, "Ctrl+O collapses again", offset)
+        settle(process)
+        s = ANSI.sub("", bytes(transcript[offset:]).decode("utf8", errors="replace"))
+        assert hidden not in s, "collapsed again: marker hidden"
+        assert target.read_text() == "alpha\n"
+        checks.append("collapse_while_waiting")
+        # Deny: options are (y) Yes, (s) Yes for this session, (n) No, (r) No with reason.
+        offset = len(transcript)
+        send(process, DOWN, DOWN, ENTER)
+        s = wait(process, lambda s: UNVERIFIED in s and "Error: [pi-permission-system] The user " + denial in s and "+ gamma" in s and "Permission Required" in s, "deny marks the proposal unverified with its error", offset)
+        assert target.read_text() == "alpha\n"
+        checks += ["deny_unverified_with_error", "file_unchanged_after_deny"]
+        settle(process)
+        offset = len(transcript)
+        send(process, ENTER)
+        s = wait(process, lambda s: "SCRIPTED_DONE" in s and "File changes (1)" in s and "+1 gamma" in s and "-1 alpha" in s, "allow shows the real diff", offset)
+        assert target.read_text() == "gamma\n"
+        checks += ["allow_real_diff", "file_changed_after_allow"]
+    finally:
+        stop(process)
+        os.close(master)
+        os.close(slave)
+        (run / "live.log").write_bytes(transcript)
+    sessions = list((run / "sessions").rglob("*.jsonl"))
+    assert len(sessions) == 1
+    entries = [json.loads(line) for line in sessions[0].read_text().splitlines()]
+    details = [e["message"]["details"]["piCodemodeDiff"] for e in entries
+               if e.get("message", {}).get("role") == "toolResult" and "piCodemodeDiff" in (e["message"].get("details") or {})]
+    assert len(details) == 1 and details[0]["version"] == 1 and len(details[0]["changes"]) == 1, details
+    saved = json.dumps(details)
+    assert "unverified" not in saved and "Proposed" not in saved and MARKER not in saved, saved
+    checks.append("saved_details_completed_only")
+    print("PASS", name, ", ".join(checks), flush=True)
+    return {"scenario": name, "edited_path": path, "permission": permission, "parent_diff_records": len(details), "checks": checks}
 
 
-def screen():
-    return tmux("capture-pane", "-p", "-J", "-t", "pi", "-S", "-200")
-
-
-def wait(predicate, label, timeout=30):
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        text = screen()
-        if predicate(text):
-            return text
-        if "PI EXITED" in text:
-            break
-        time.sleep(0.2)
-    raise AssertionError(label + ": failed\n" + screen())
+def version(package_dir):
+    return json.loads((package_dir / "package.json").read_text())["version"]
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pi", type=pathlib.Path, required=True)
-    parser.add_argument("--output", type=pathlib.Path, default=pathlib.Path(tempfile.mkdtemp(prefix="pi-preapproval-tui-")))
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--pi", type=pathlib.Path, required=True, help="Pi's CLI .js entry (dist/bundle/cli.js)")
+    parser.add_argument("--permission-system", type=pathlib.Path, required=True, help="@gotgenes/pi-permission-system package directory")
+    parser.add_argument("--node", default=shutil.which("node"))
     parser.add_argument("--rows", type=int, default=40)
     parser.add_argument("--cols", type=int, default=120)
-    parser.add_argument("--permission-system", type=pathlib.Path,
-                        help="Use this pi-permission-system package (with an edit ask rule) instead of the test select gate")
+    parser.add_argument("--output", type=pathlib.Path)
     args = parser.parse_args()
-    out = args.output.resolve()
-    out.mkdir(parents=True, exist_ok=True)
-    if any(out.iterdir()):
-        raise SystemExit("Use a new empty --output directory")
-    work, agent, home = out / "workspace", out / "agent", out / "home"
-    for path in (work, agent, home):
-        path.mkdir()
-    target = work / "target.txt"
-    target.write_text("alpha\n")
+    args.pi = args.pi.resolve(strict=True)
+    args.permission_system = args.permission_system.resolve(strict=True)
+    if not args.pi.is_file() or not (args.permission_system / "package.json").is_file() or not args.node:
+        raise SystemExit("--pi must be Pi's CLI file, --permission-system a package directory, and node must be on PATH")
+    root = (args.output or pathlib.Path(tempfile.mkdtemp(prefix="pi-preapproval-tui-"))).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    if any(root.iterdir()):
+        raise SystemExit("Use a new empty --output directory to preserve previous evidence")
+    pi_package = args.pi.parents[2]
     model = Model()
-    (agent / "models.json").write_text(json.dumps({"providers": {"local": {"api": "openai-completions", "baseUrl": f"http://127.0.0.1:{model.server.server_port}/v1", "apiKey": "placeholder", "models": [{"id": "verify", "name": "Local scripted", "reasoning": False, "input": ["text"], "contextWindow": 100000, "maxTokens": 4096}]}}}))
-    gate = str(REPO / "test/pty/select-gate.ts")
-    # Keys: [block, allow]. The select gate highlights Allow first.
-    marker, block_keys, allow_keys = "TEST GATE", ["Down", "Enter"], ["Enter"]
-    if args.permission_system:
-        gate = str(args.permission_system.resolve())
-        config = agent / "extensions" / "pi-permission-system"
-        config.mkdir(parents=True)
-        (config / "config.json").write_text(json.dumps({
-            "doublePressToConfirm": False, "permissionReviewLog": False,
-            "permission": {"*": "allow", "path": {"*": "allow"}, "external_directory": "allow", "edit": "ask"},
-        }))
-        # Options: (y) Yes, (s) Yes for this session, (n) No, (r) No with reason.
-        marker, block_keys, allow_keys = "Permission Required", ["Down", "Down", "Enter"], ["Enter"]
-    (agent / "settings.json").write_text(json.dumps({"compaction": {"enabled": False}, "retry": {"enabled": False}, "cacheWarming": "off", "quietStartup": True}))
-    env = {"HOME": str(home), "PI_CODING_AGENT_DIR": str(agent), "PI_OFFLINE": "1", "PI_SKIP_VERSION_CHECK": "1", "TERM": "xterm-256color", "PATH": os.environ["PATH"]}
-    cmd = [shutil.which("node"), str(args.pi), "--offline", "--no-extensions", "-e", "builtin:codemode",
-           "-e", str(REPO / "src/index.ts"), "-e", gate,
-           "--no-skills", "--no-prompt-templates", "--no-context-files", "--tools", "read,edit,write,codemode",
-           "--model", "local/verify", "--session-dir", str(out / "sessions"), "Run the scripted check."]
-    envs = [f"{k}={v}" for k, v in env.items()]
-    subprocess.run(["tmux", "-L", SOCKET, "kill-server"], capture_output=True)
-    # Keep the pane after an unexpected exit so its error is captured as evidence.
-    shell = shlex.join(["env", "-i", *envs, *cmd]) + '; echo "PI EXITED $?"; sleep 600'
-    tmux("new-session", "-d", "-s", "pi", "-x", str(args.cols), "-y", str(args.rows), "-c", str(work), "sh", "-c", shell)
-    evidence = {}
     try:
-        s = wait(lambda s: marker in s and "Proposed changes (1)" in s, "first gate with proposal")
-        evidence["1-first-gate-waiting"] = s
-        assert "- alpha" in s and "+ beta" in s, s
-        assert "File changes" not in s, s
-        assert target.read_text() == "alpha\n"
-        tmux("send-keys", "-t", "pi", "C-o")
-        time.sleep(0.5)
-        evidence["2-first-gate-expanded"] = wait(lambda s: marker in s and "+ beta" in s, "expanded while waiting")
-        tmux("send-keys", "-t", "pi", "C-o")
-        time.sleep(0.5)
-        for key in block_keys:
-            tmux("send-keys", "-t", "pi", key)
-            time.sleep(0.3)
-        s = wait(lambda s: marker in s and "Did not complete" in s and "+ gamma" in s, "second gate after block")
-        evidence["3-second-gate-after-block"] = s
-        assert target.read_text() == "alpha\n"
-        for key in allow_keys:
-            tmux("send-keys", "-t", "pi", key)
-            time.sleep(0.3)
-        s = wait(lambda s: "SCRIPTED_DONE" in s and "File changes (1)" in s, "completed after allow")
-        evidence["4-completed-after-allow"] = s
-        assert "Proposed changes" not in s, s
-        assert "+1 gamma" in s and "-1 alpha" in s, s
-        assert target.read_text() == "gamma\n"
+        results = {
+            "host": {"pi": version(pi_package), "pi_cli_sha256": hashlib.sha256(args.pi.read_bytes()).hexdigest(),
+                     "pi_permission_system": version(args.permission_system), "window": f"{args.cols}x{args.rows}"},
+            "scenarios": [verify(args, model, root, name) for name in SCENARIOS],
+        }
+        (root / "summary.json").write_text(json.dumps(results, indent=2) + "\n")
+        print("Evidence:", root)
     finally:
-        try:
-            evidence["final"] = screen()
-        except Exception:
-            pass
-        subprocess.run(["tmux", "-L", SOCKET, "kill-server"], capture_output=True)
-        model.server.shutdown()
-        for name, text in evidence.items():
-            (out / f"{name}.txt").write_text(text)
-    sessions = list((out / "sessions").rglob("*.jsonl"))
-    saved = sessions[0].read_text()
-    assert "unverified" not in saved and "Proposed changes" not in saved
-    print("PASS: proposal visible while gate waited; block left file unchanged; allow applied and showed the real diff. Evidence:", out)
+        model.close()
 
 
 if __name__ == "__main__":
