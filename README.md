@@ -52,6 +52,27 @@ The original tool still renders its script, output, warnings and duration. Its r
 - Unavailable diffs are counted across the entire call, including changes outside the preview. Each change retains an explanatory notice. Empty diffs and preview-folded diffs are not counted as unavailable.
 - Single-line replacements highlight changed words. Large/complex comparisons and whitespace changes that cannot be reconstructed exactly keep line colors instead.
 
+## Proposed changes before approval
+
+When a nested `edit` or `write` starts, the live codemode card shows a separate **Proposed (not applied)** section built from the call's arguments. Pi emits the nested `tool_execution_start` event, and waits for it, before any `tool_call` handler runs. A permission prompt (for example `@gotgenes/pi-permission-system`'s `ask` dialog) therefore opens with the proposal already on screen, in either extension load order. Ctrl+O expands it with the rest of the tool output.
+
+```diff
+Proposed (not applied) (1)
+Replacement preview from the call's arguments; not a dry run. The file has not been read or changed.
+
+src/main.ts [edit · proposed] +1 -1
+- const timeout = 1000;
++ const timeout = 5000;
+```
+
+- **A replacement preview, not a dry run.** Each `edits[]` entry is shown as unnumbered `-`/`+` lines, with lines shared by `oldText` and `newText` as context. The file is **not read** before approval, so the preview does not check that `oldText` matches, is unique or does not overlap. It has no file line numbers. Pi's fuzzy matching and line-ending/BOM normalization can make the applied diff differ.
+- Arguments are normalized with Pi's own edit `prepareArguments` (JSON-string `edits`, a single edit object, legacy top-level `oldText`/`newText`). Malformed or empty input shows a "Preview unavailable" note.
+- `write` shows only the proposed content and its size, labelled **proposed content**. Because the previous file is not read, it does not say whether the write creates or overwrites a file.
+- Lifecycle: a successful call's completed diff replaces its proposal. A call that ends with an error is marked **Not applied**: a denial, a failed match and a cancellation look the same. Proposals disappear when the parent call ends, and on `agent_end` and session start/shutdown. Each nested call keeps its own proposal, including parallel calls and repeated edits to one file. Collapsed view shows pending calls first.
+- Proposals are display-only and session-local. They are never added to result `details` (the version-1 schema is unchanged), to model-facing content or to the saved session. Permission decisions and file mutation are unchanged.
+- Budgets: replacement input over 256 KiB or 4,000 lines, or a proposal over 64 KiB or 2,000 lines, is omitted with a notice. Proposals in one parent call share a separate 256 KiB / 8,000-line budget. Paths and contents are sanitized like completed diffs.
+- Scope: native `codemode` in Pi's interactive TUI. `pi-opencode-mode@0.1.0`'s `codemode_o` publishes no partial results, so its card has no live section and shows no proposals. Direct (non-codemode) calls, the PiG entry and forwarded delegate prompts get no preview. The preview is in the codemode card above the approval prompt, not inside the prompt.
+
 ## Capture and persistence
 
 Successful nested edits reuse the edit tool's `details.diff`. Nested writes delegate to Pi's built-in write definition, taking a bounded previous-content snapshot inside its file mutation queue before writing. Direct edit/write calls keep their original behavior and do not acquire parent diff metadata.
@@ -115,6 +136,8 @@ pi -e /absolute/path/to/pi-codemode-diff/src/index.ts
 ```
 
 Pi installs the `diff` runtime dependency for npm/git installations. It does not install dependencies for a local path: run `npm install --omit=dev --omit=peer --ignore-scripts` in the package root for local runtime use, or `npm ci` for development. Host-provided Pi modules are peers, not bundled runtime dependencies. `/reload` picks up source changes.
+
+To check the pre-approval preview in a real terminal, run `python3 test/pty/preapproval_tui.py --pi <pi-coding-agent>/dist/bundle/cli.js --output <new-empty-dir>`. It needs tmux and uses a scripted local model. Add `--permission-system <path-to-@gotgenes/pi-permission-system>` to use that package's real `ask` prompt instead of the test gate.
 
 Tests cover capture isolation, result preservation, bounded snapshots/diffs, filesystem edge cases, renderer composition, saved metadata, reload/resume and both tool roots. Package tests inspect both independent npm artifacts and load the extracted TS entries through Pi. Offline integration fixtures isolate workspaces, settings, credentials and sessions; they use scripted local models.
 

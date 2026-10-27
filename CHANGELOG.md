@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Show a **Proposed (not applied)** section in the live codemode card for nested `edit`/`write` calls, built from their arguments when the call starts. It is on screen before any `tool_call` handler runs, so it is visible while a permission prompt waits. It is a replacement preview, not a dry run: no file is read before approval.
+- A completed diff replaces the proposal; a call that ends with an error is marked "Not applied". Proposals are dropped at parent end, `agent_end` and session start/shutdown. They are never persisted, and the version-1 `details` schema, model-facing output and permission behavior are unchanged.
+- Test the display timing with Pi's real tool component and a waiting `tool_call` gate, plus a tmux script (`test/pty/preapproval_tui.py`) for the real Pi binary, optionally with `@gotgenes/pi-permission-system`.
+
 ## 0.1.5
 
 - Capture and display nested `edit`/`write` changes from the optional `codemode_o` tool, alongside native `codemode`.
