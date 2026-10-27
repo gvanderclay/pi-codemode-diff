@@ -3,7 +3,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
-import type { ExtensionAPI, ExtensionToolContext, ToolDefinition, ToolRenderers } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionToolContext, Theme, ToolDefinition, ToolRenderers } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import extension from "../src/index.ts";
 import { DETAILS_KEY, readChanges } from "../src/changes.ts";
 
@@ -278,3 +279,35 @@ for (const lifecycle of ["agent_end", "session_shutdown"]) {
     assert.equal(readChanges((await host.finish("root")).details), undefined);
   });
 }
+
+test("nested edit/write starts create live proposals that lifecycle events drop", async () => {
+  const host = harness();
+  type Render = NonNullable<ToolRenderers["renderResult"]>;
+  const render = host.getRenderer()("codemode", () => ({ renderResult: () => new Text("running", 0, 0) }))!.renderResult as Render;
+  const theme = { fg: (_: string, value: string) => value, bold: (value: string) => value, inverse: (value: string) => value } as unknown as Theme;
+  const context = {
+    durationMs: undefined, outputPad: 0, args: {}, toolCallId: "root", invalidate() {}, lastComponent: undefined,
+    state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
+    expanded: true, showImages: true, isError: false,
+  } as Parameters<Render>[3];
+  const view = () => render({ content: [], details: {} }, { expanded: true, isPartial: true }, theme, context).render(100).join("\n");
+  for (const type of ["agent_end", "session_start", "session_shutdown"]) {
+    await host.start("root", "codemode");
+    await host.emit({ type: "tool_execution_start", toolCallId: "root/1", toolName: "edit", parentToolCallId: "root",
+      args: { path: "a.ts", edits: JSON.stringify([{ oldText: "one", newText: "two" }]) } });
+    await host.emit({ type: "tool_execution_start", toolCallId: "root/2", toolName: "write", parentToolCallId: "root",
+      args: { path: "b.ts", content: "new\n" } });
+    await host.emit({ type: "tool_execution_start", toolCallId: "direct", toolName: "edit",
+      args: { path: "direct.ts", edits: [{ oldText: "x", newText: "y" }] } });
+    const live = view();
+    assert.match(live, /Proposed \(not applied\) \(2\)/);
+    assert.match(live, /a\.ts \[edit · proposed\] \+1 -1/);
+    assert.match(live, /b\.ts \[write · proposed content\] 4 bytes · 1 line/);
+    assert.doesNotMatch(live, /direct\.ts/, "Direct calls never get a proposal");
+    await host.emit({ type: "tool_execution_end", toolCallId: "root/2", toolName: "write", parentToolCallId: "root", isError: false, result: {} });
+    assert.doesNotMatch(view(), /b\.ts/, "A successful end without a captured change drops the proposal");
+    await host.emit({ type });
+    assert.doesNotMatch(view(), /Proposed/, type + " drops proposals");
+    assert.equal(readChanges((await host.finish("root")).details), undefined);
+  }
+});

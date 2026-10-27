@@ -1,4 +1,5 @@
 import {
+  createEditToolDefinition,
   isEditToolResult,
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
@@ -9,6 +10,7 @@ import { registerDiffRenderer } from "./render.ts";
 import { isPiGHost } from "./host.ts";
 import type { registerPiGDisplay } from "./pig.ts";
 import { registerWriteCapture } from "./write.ts";
+import { editProposal, writeProposal } from "./proposals.ts";
 
 export default function codemodeDiff(pi: ExtensionAPI): void | Promise<void> {
   if (typeof pi.registerToolRenderer !== "function") {
@@ -27,8 +29,25 @@ function register(pi: ExtensionAPI, createPiGDisplay?: typeof registerPiGDisplay
   const capture = new Capture();
   const publishPiG = createPiGDisplay?.(pi, capture);
 
+  // Pi's own edit argument normalization; it reads nothing from disk.
+  let prepareEdit: ((args: unknown) => unknown) | undefined;
+  const prepare = (args: unknown) => {
+    prepareEdit ??= createEditToolDefinition(process.cwd()).prepareArguments as (args: unknown) => unknown;
+    return prepareEdit ? prepareEdit(args) : args;
+  };
+
   pi.on("tool_execution_start", (event) => {
     capture.start(event.toolCallId, event.toolName, event.parentToolCallId);
+    // Pi awaits this nested event before any tool_call handler (permission
+    // gates included), so the preview exists before an approval prompt opens.
+    // PiG has no live card; previews are out of scope there.
+    if (publishPiG || !capture.isNested(event.toolCallId)) return;
+    try {
+      if (event.toolName === "edit") capture.propose(editProposal(event.toolCallId, event.args, prepare));
+      else if (event.toolName === "write") capture.propose(writeProposal(event.toolCallId, event.args));
+    } catch {
+      // A preview must never affect the call itself.
+    }
   });
 
   pi.on("tool_result", (event) => {
@@ -58,8 +77,9 @@ function register(pi: ExtensionAPI, createPiGDisplay?: typeof registerPiGDisplay
   pi.on("tool_execution_end", (event) => {
     // This event carries the final outcome after every tool_result handler.
     // A later extension may reject a write whose mutation we already observed.
-    if (event.isError && capture.isNested(event.toolCallId)) {
-      capture.reportError(event.toolCallId);
+    if (capture.isNested(event.toolCallId)) {
+      if (event.isError) capture.reportError(event.toolCallId);
+      else capture.settle(event.toolCallId);
     }
     try {
       if (isCodemodeTool(event.toolName)) publishPiG?.(event.toolCallId, event.toolName);

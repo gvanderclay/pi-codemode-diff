@@ -1,6 +1,7 @@
 import { isCodemodeTool } from "./tools.ts";
 import { limitChange, type Change, type DiffDetails } from "./changes.ts";
 import { MAX_BATCH_DIFF_BYTES, MAX_BATCH_DIFF_LINES, lineCount } from "./limits.ts";
+import { limitProposal, type Proposal } from "./proposals.ts";
 
 interface Call {
   rootId: string;
@@ -13,6 +14,10 @@ interface Batch {
   nextOrder: number;
   diffBytes: number;
   diffLines: number;
+  /** Pre-approval previews: a separate map and budget, never part of details(). */
+  proposals: Map<string, Proposal>;
+  proposalBytes: number;
+  proposalLines: number;
   invalidate?: () => void;
 }
 
@@ -27,7 +32,10 @@ export class Capture {
     const rootId = parentRoot ?? id;
     let batch = this.batches.get(rootId);
     if (!batch) {
-      batch = { callIds: new Set(), changes: new Map(), nextOrder: 0, diffBytes: 0, diffLines: 0 };
+      batch = {
+        callIds: new Set(), changes: new Map(), nextOrder: 0, diffBytes: 0, diffLines: 0,
+        proposals: new Map(), proposalBytes: 0, proposalLines: 0,
+      };
       this.batches.set(rootId, batch);
     }
     batch.callIds.add(id);
@@ -54,16 +62,51 @@ export class Capture {
     batch.changes.set(change.toolCallId, bounded);
     batch.diffBytes = bytes + Buffer.byteLength(bounded.diff ?? "", "utf8");
     batch.diffLines = lines + lineCount(bounded.diff ?? "");
+    // The completed diff replaces the call's proposal.
+    this.deleteProposal(batch, change.toolCallId);
     this.redraw(batch);
+  }
+
+  /** Record a nested call's pre-approval preview; only nested calls are accepted. */
+  propose(proposal: Proposal): void {
+    if (!this.isNested(proposal.toolCallId)) return;
+    const batch = this.batches.get(this.rootFor(proposal.toolCallId)!);
+    if (!batch) return;
+    this.deleteProposal(batch, proposal.toolCallId);
+    const bounded = limitProposal(
+      proposal, MAX_BATCH_DIFF_BYTES - batch.proposalBytes, MAX_BATCH_DIFF_LINES - batch.proposalLines,
+    );
+    batch.proposals.set(proposal.toolCallId, bounded);
+    batch.proposalBytes += Buffer.byteLength(bounded.diff ?? "", "utf8");
+    batch.proposalLines += lineCount(bounded.diff ?? "");
+    this.redraw(batch);
+  }
+
+  /** A nested call ended without error: drop any proposal it did not replace. */
+  settle(id: string): void {
+    const rootId = this.rootFor(id);
+    const batch = rootId ? this.batches.get(rootId) : undefined;
+    if (batch && this.deleteProposal(batch, id)) this.redraw(batch);
   }
 
   reportError(id: string): void {
     const rootId = this.rootFor(id);
     const batch = rootId ? this.batches.get(rootId) : undefined;
-    const change = batch?.changes.get(id);
-    if (!batch || !change) return;
-    batch.changes.set(id, { ...change, toolReportedError: true });
-    this.redraw(batch);
+    if (!batch) return;
+    const change = batch.changes.get(id);
+    const proposal = batch.proposals.get(id);
+    if (change) batch.changes.set(id, { ...change, toolReportedError: true });
+    // Blocked, failed and cancelled calls look alike here: report "not applied" only.
+    if (proposal && proposal.status !== "not-applied") batch.proposals.set(id, { ...proposal, status: "not-applied" });
+    if (change || proposal) this.redraw(batch);
+  }
+
+  proposals(rootId: string): Proposal[] {
+    const batch = this.batches.get(rootId);
+    if (!batch) return [];
+    return [...batch.proposals.values()].sort((a, b) =>
+      (this.calls.get(a.toolCallId)?.order ?? 0) - (this.calls.get(b.toolCallId)?.order ?? 0),
+    );
   }
 
   changes(rootId: string): Change[] {
@@ -95,6 +138,15 @@ export class Capture {
   clear(): void {
     this.calls.clear();
     this.batches.clear();
+  }
+
+  private deleteProposal(batch: Batch, id: string): boolean {
+    const proposal = batch.proposals.get(id);
+    if (!proposal) return false;
+    batch.proposals.delete(id);
+    batch.proposalBytes -= Buffer.byteLength(proposal.diff ?? "", "utf8");
+    batch.proposalLines -= lineCount(proposal.diff ?? "");
+    return true;
   }
 
   private redraw(batch: Batch): void {

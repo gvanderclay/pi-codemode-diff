@@ -9,6 +9,7 @@ import { isCodemodeTool } from "./tools.ts";
 import type { Capture } from "./capture.ts";
 import { countChanges, readChanges, type Change } from "./changes.ts";
 import { coloredDiff } from "./diff.ts";
+import type { Proposal } from "./proposals.ts";
 
 export const PREVIEW_CHANGES = 3;
 export const PREVIEW_LINES = 8;
@@ -95,12 +96,74 @@ export function diffSection(changes: readonly Change[], expanded: boolean, theme
   return section;
 }
 
+/**
+ * Pre-approval previews built from supplied arguments only. Labelled as not
+ * applied: the text has not been matched against the file.
+ */
+export function proposalSection(proposals: readonly Proposal[], expanded: boolean, theme: Theme): Container {
+  const section = new Container();
+  if (!proposals.length) return section;
+  section.addChild(new Spacer(1));
+  section.addChild(new Text(theme.fg("warning", theme.bold("Proposed (not applied) (" + proposals.length + ")")), 0, 0));
+  section.addChild(new Text(theme.fg("muted", "Replacement preview from the call's arguments; not a dry run. The file has not been read or changed."), 0, 0));
+  // The calls awaiting approval or execution matter most: list them first.
+  const ordered = [
+    ...proposals.filter(proposal => proposal.status === "pending"),
+    ...proposals.filter(proposal => proposal.status !== "pending"),
+  ];
+  const shown = expanded ? ordered : ordered.slice(0, PREVIEW_CHANGES);
+  for (const proposal of shown) {
+    section.addChild(new Spacer(1));
+    const label = proposal.tool === "write" ? "write · proposed content" : "edit · proposed";
+    const counts = proposal.tool === "edit" && proposal.added !== undefined
+      ? " " + theme.fg("toolDiffAdded", "+" + proposal.added) + " " + theme.fg("toolDiffRemoved", "-" + (proposal.removed ?? 0))
+      : "";
+    const lines = proposal.lines === undefined ? "" : " · " + proposal.lines + (proposal.lines === 1 ? " line" : " lines");
+    const size = proposal.bytes === undefined ? "" : " " + theme.fg("muted", proposal.bytes + " bytes" + lines);
+    section.addChild(new Text(theme.fg("toolTitle", inlineText(proposal.path)) + " " + theme.fg("muted", "[" + label + "]") + counts + size, 0, 0));
+    if (proposal.status === "not-applied") {
+      section.addChild(new Text(theme.fg("warning", "Not applied: the call was blocked, failed or cancelled."), 0, 0));
+    }
+    if (proposal.diff) {
+      const styled = coloredDiff(safeText(proposal.diff), theme);
+      section.addChild(expanded ? new Text(styled, 0, 0) : new DiffPreview(styled, theme));
+    }
+    if (proposal.note) section.addChild(new Text(theme.fg("muted", inlineText(proposal.note)), 0, 0));
+  }
+  if (shown.length < ordered.length) {
+    section.addChild(new Text(
+      theme.fg("muted", "… (" + (ordered.length - shown.length) + " more proposed,") + " " + expandHint(theme) + theme.fg("muted", ")"),
+      0,
+      0,
+    ));
+  }
+  return section;
+}
+
+function sameItems<T>(a: readonly T[] | undefined, b: readonly T[]): boolean {
+  return a?.length === b.length && b.every((item, i) => item === a[i]);
+}
+
 class WrappedResult extends Container {
   baseComponent?: Component;
   private changes?: readonly Change[];
   private expanded?: boolean;
   private theme?: Theme;
   private section?: Container;
+  private proposals?: readonly Proposal[];
+  private proposalExpanded?: boolean;
+  private proposalTheme?: Theme;
+  private pending?: Container;
+
+  getProposalSection(proposals: readonly Proposal[], expanded: boolean, theme: Theme): Container {
+    if (!this.pending || !sameItems(this.proposals, proposals) || this.proposalExpanded !== expanded || this.proposalTheme !== theme) {
+      this.pending = proposalSection(proposals, expanded, theme);
+      this.proposals = proposals;
+      this.proposalExpanded = expanded;
+      this.proposalTheme = theme;
+    }
+    return this.pending;
+  }
 
   getSection(changes: readonly Change[], expanded: boolean, theme: Theme): Container {
     const sameChanges = this.changes?.length === changes.length && changes.every((item, i) => item === this.changes?.[i]);
@@ -117,6 +180,8 @@ class WrappedResult extends Container {
     super.invalidate();
     this.section = undefined;
     this.changes = undefined;
+    this.pending = undefined;
+    this.proposals = undefined;
   }
 }
 
@@ -141,6 +206,9 @@ export function registerDiffRenderer(pi: ExtensionAPI, capture: Capture): void {
         capture.watch(context.toolCallId, context.invalidate);
         const changes = readChanges(result.details) ?? capture.changes(context.toolCallId);
         component.addChild(component.getSection(changes, options.expanded, theme));
+        // Proposals are live-only: never read from (or written to) result details.
+        const proposals = options.isPartial ? capture.proposals(context.toolCallId) : [];
+        component.addChild(component.getProposalSection(proposals, options.expanded, theme));
         return component;
       },
     };
