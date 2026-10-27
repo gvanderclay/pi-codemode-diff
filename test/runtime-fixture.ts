@@ -23,6 +23,9 @@ interface FixtureOptions {
   withoutDiff?: boolean;
   extraExtensions?: ExtensionFactory[];
   noTools?: "all" | "builtin";
+  /** Extension files loaded before/after this package, to test load-order independence. */
+  extensionPathsBefore?: string[];
+  extensionPathsAfter?: string[];
 }
 
 /** Real Pi loader, hooks, codemode sandbox, and filesystem; no remote model calls. */
@@ -62,9 +65,11 @@ export async function runtimeFixture(t: TestContext, options: FixtureOptions = {
     noPromptTemplates: true,
     noContextFiles: true,
     additionalExtensionPaths: [
+      ...(options.extensionPathsBefore ?? []),
       ...(options.openCode === "before" ? [fileURLToPath(import.meta.resolve("pi-opencode-mode/index.js"))] : []),
       ...(options.withoutDiff ? [] : [options.extensionPath ?? fileURLToPath(new URL("../src/index.ts", import.meta.url))]),
       ...(options.openCode === "after" ? [fileURLToPath(import.meta.resolve("pi-opencode-mode/index.js"))] : []),
+      ...(options.extensionPathsAfter ?? []),
     ],
     extensionFactories: [createCodemodeExtension(), ...(options.extraExtensions ?? [])],
   });
