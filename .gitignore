@@ -21,6 +21,9 @@ auth.json
 # Local agent configuration and session data
 .pi/
 
+# Local scratch files and PTY captures
+/.scratch/
+
 # Native Go builds and Python verification cache
 .pig/
 native/bin/

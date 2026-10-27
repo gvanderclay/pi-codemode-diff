@@ -54,13 +54,13 @@ The original tool still renders its script, output, warnings and duration. Its r
 
 ## Proposed changes before approval
 
-When a nested `edit` or `write` starts, the live codemode card shows a separate **Proposed (not applied)** section built from the call's arguments. Pi emits the nested `tool_execution_start` event, and waits for it, before any `tool_call` handler runs. A permission prompt (for example `@gotgenes/pi-permission-system`'s `ask` dialog) therefore opens with the proposal already on screen, in either extension load order. Ctrl+O expands it with the rest of the tool output.
+When a nested `edit` or `write` starts, the live codemode card shows a separate **Proposed changes** section built from the call's arguments. Pi emits the nested `tool_execution_start` event, and waits for it, before any `tool_call` handler runs. The preview is therefore built, and a redraw requested, before permission handlers run, in either extension load order. It is rendered while an interactive approval prompt (for example `@gotgenes/pi-permission-system`'s `ask` dialog) waits, provided the card fits in the terminal above the prompt. Ctrl+O expands it with the rest of the tool output.
 
 ```diff
-Proposed (not applied) (1)
-Replacement preview from the call's arguments; not a dry run. The file has not been read or changed.
+Proposed changes (1)
 
 src/main.ts [edit · proposed] +1 -1
+Preview built from the call's arguments without reading the file; not applied yet.
 - const timeout = 1000;
 + const timeout = 5000;
 ```
@@ -68,7 +68,7 @@ src/main.ts [edit · proposed] +1 -1
 - **A replacement preview, not a dry run.** Each `edits[]` entry is shown as unnumbered `-`/`+` lines, with lines shared by `oldText` and `newText` as context. The file is **not read** before approval, so the preview does not check that `oldText` matches, is unique or does not overlap. It has no file line numbers. Pi's fuzzy matching and line-ending/BOM normalization can make the applied diff differ.
 - Arguments are normalized with Pi's own edit `prepareArguments` (JSON-string `edits`, a single edit object, legacy top-level `oldText`/`newText`). Malformed or empty input shows a "Preview unavailable" note.
 - `write` shows only the proposed content and its size, labelled **proposed content**. Because the previous file is not read, it does not say whether the write creates or overwrites a file.
-- Lifecycle: a successful call's completed diff replaces its proposal. A call that ends with an error is marked **Not applied**: a denial, a failed match and a cancellation look the same. Proposals disappear when the parent call ends, and on `agent_end` and session start/shutdown. Each nested call keeps its own proposal, including parallel calls and repeated edits to one file. Collapsed view shows pending calls first.
+- Lifecycle: a successful call's completed diff replaces its proposal. A call that ends with an error is marked **Did not complete — changes not verified**, followed by the first line of its error text (sanitized, up to 200 characters). A denial, a failed match and a cancellation are not told apart, and an error does not prove the file is unchanged (for example, a cancellation after the write). Proposals disappear when the parent call ends, and on `agent_end` and session start/shutdown. Each nested call keeps its own proposal, including parallel calls and repeated edits to one file. Collapsed view shows pending calls first.
 - Proposals are display-only and session-local. They are never added to result `details` (the version-1 schema is unchanged), to model-facing content or to the saved session. Permission decisions and file mutation are unchanged.
 - Budgets: replacement input over 256 KiB or 4,000 lines, or a proposal over 64 KiB or 2,000 lines, is omitted with a notice. Proposals in one parent call share a separate 256 KiB / 8,000-line budget. Paths and contents are sanitized like completed diffs.
 - Scope: native `codemode` in Pi's interactive TUI. `pi-opencode-mode@0.1.0`'s `codemode_o` publishes no partial results, so its card has no live section and shows no proposals. Direct (non-codemode) calls, the PiG entry and forwarded delegate prompts get no preview. The preview is in the codemode card above the approval prompt, not inside the prompt.
