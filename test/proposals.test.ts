@@ -124,10 +124,10 @@ test("capture keeps proposals per call id, separate from completed diffs", () =>
   capture.add({ toolCallId: "root/1", tool: "edit", path: "same.ts", kind: "edit", diff: "-1 a\n+1 b" });
   capture.reportError("root/2");
   capture.settle("root/3");
-  assert.deepEqual(capture.proposals("root").map(p => [p.toolCallId, p.status]), [["root/2", "not-applied"]]);
+  assert.deepEqual(capture.proposals("root").map(p => [p.toolCallId, p.status]), [["root/2", "unverified"]]);
   const details = JSON.stringify(capture.details("root"));
   assert.deepEqual(capture.details("root")!.changes.map(c => c.toolCallId), ["root/1"]);
-  assert.doesNotMatch(details, /not-applied|pending|- c/);
+  assert.doesNotMatch(details, /unverified|pending|- c/);
 
   capture.end("root");
   assert.deepEqual(capture.proposals("root"), []);
@@ -160,20 +160,20 @@ test("the per-root proposal budget is independent of the completed-diff budget",
   assert.equal(capture.details("root")!.changes[0].diff, "+1 x");
 });
 
-test("the section is labelled not applied, lists pending calls first and bounds the collapsed view", () => {
+test("the section labels pending and unverified calls, lists pending calls first and bounds the collapsed view", () => {
   const proposals: Proposal[] = Array.from({ length: PREVIEW_CHANGES + 2 }, (_, i) => ({
-    toolCallId: "root/" + i, tool: "edit", path: "file-" + i + ".ts", status: i === 0 ? "not-applied" : "pending",
+    toolCallId: "root/" + i, tool: "edit", path: "file-" + i + ".ts", status: i === 0 ? "unverified" : "pending",
     diff: Array.from({ length: 20 }, (_, j) => "+ added-" + i + "-" + j).join("\n"), added: 20, removed: 0,
   }));
   const collapsed = text(proposalSection(proposals, false, theme));
-  assert.match(collapsed, /Proposed \(not applied\) \(5\)/);
-  assert.match(collapsed, /not a dry run/);
+  assert.match(collapsed, /Proposed changes \(5\)/);
+  assert.match(collapsed, /file-1\.ts[^\n]*\nPreview built from the call's arguments without reading the file; not applied yet\./);
   assert.match(collapsed, /file-1\.ts \[edit · proposed\] \+20 -0/);
   assert.doesNotMatch(collapsed, /file-0\.ts/, "Pending calls come before calls that are already settled");
   assert.match(collapsed, /2 more proposed/);
   assert.doesNotMatch(collapsed, /added-1-19/);
   const full = text(proposalSection(proposals, true, theme));
-  assert.match(full, /file-0\.ts[^\n]*\nNot applied: the call was blocked, failed or cancelled\./);
+  assert.match(full, /file-0\.ts[^\n]*\nDid not complete — changes not verified\./);
   assert.match(full, /added-4-19/);
   assert.equal(text(proposalSection([], true, theme)), "");
 });
@@ -207,7 +207,7 @@ test("the wrapped card shows proposals only while partial and never from saved d
   capture.propose(editProposal("root/1", { path: "a.ts", edits: [{ oldText: "old", newText: "new" }] }, prepare));
   assert.equal(invalidated, 1, "A new proposal redraws the live card");
   const partial = render({ content: [], details: {} }, { expanded: false, isPartial: true }, theme, { ...context, lastComponent: first });
-  assert.match(text(partial), /Proposed \(not applied\) \(1\)[\s\S]*a\.ts \[edit · proposed\] \+1 -1[\s\S]*- old\n\+ new/);
+  assert.match(text(partial), /Proposed changes \(1\)[\s\S]*a\.ts \[edit · proposed\] \+1 -1[\s\S]*- old\n\+ new/);
   const final = render({ content: [], details: { [DETAILS_KEY]: { version: 1, changes: [] } } }, { expanded: false, isPartial: false }, theme, { ...context, isPartial: false, lastComponent: partial });
   assert.doesNotMatch(text(final), /Proposed/);
   assert.equal(readChanges({ [DETAILS_KEY]: { version: 1, changes: [] } })?.length, 0);

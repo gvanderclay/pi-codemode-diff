@@ -14,8 +14,13 @@ export interface Proposal {
   toolCallId: string;
   tool: "edit" | "write";
   path: string;
-  /** "not-applied": the call ended with an error (blocked, failed or cancelled). */
-  status: "pending" | "not-applied";
+  /**
+   * "unverified": the call ended with an error. That may be a denial, a failed
+   * match or a cancellation, and an error does not prove the file is unchanged.
+   */
+  status: "pending" | "unverified";
+  /** First non-empty line of the call's error text, bounded (sanitized when rendered). */
+  error?: string;
   /** Unnumbered display lines: "- ", "+ ", "  " (context) or "· " (replacement header). */
   diff?: string;
   /** Edit replacement line counts, from the supplied text. */
@@ -152,6 +157,22 @@ export function writeProposal(toolCallId: string, args: unknown): Proposal {
     return { ...base, ...size, note: "Preview omitted: proposed content too large." };
   }
   return { ...base, ...size, diff: display };
+}
+
+export const MAX_ERROR_CHARS = 200;
+
+/** First non-empty line of a tool result's text blocks, truncated for display. */
+export function firstErrorLine(content: unknown): string | undefined {
+  if (!Array.isArray(content)) return undefined;
+  for (const block of content) {
+    const item = asRecord(block);
+    if (item?.type !== "text" || typeof item.text !== "string") continue;
+    for (const raw of item.text.slice(0, 64 * 1024).split(/\r\n|\r|\n/)) {
+      const line = raw.trim();
+      if (line) return line.length > MAX_ERROR_CHARS ? line.slice(0, MAX_ERROR_CHARS) + "…" : line;
+    }
+  }
+  return undefined;
 }
 
 /** Per-root budget, separate from completed diffs. */

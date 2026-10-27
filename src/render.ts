@@ -104,8 +104,7 @@ export function proposalSection(proposals: readonly Proposal[], expanded: boolea
   const section = new Container();
   if (!proposals.length) return section;
   section.addChild(new Spacer(1));
-  section.addChild(new Text(theme.fg("warning", theme.bold("Proposed (not applied) (" + proposals.length + ")")), 0, 0));
-  section.addChild(new Text(theme.fg("muted", "Replacement preview from the call's arguments; not a dry run. The file has not been read or changed."), 0, 0));
+  section.addChild(new Text(theme.fg("warning", theme.bold("Proposed changes (" + proposals.length + ")")), 0, 0));
   // The calls awaiting approval or execution matter most: list them first.
   const ordered = [
     ...proposals.filter(proposal => proposal.status === "pending"),
@@ -121,8 +120,12 @@ export function proposalSection(proposals: readonly Proposal[], expanded: boolea
     const lines = proposal.lines === undefined ? "" : " · " + proposal.lines + (proposal.lines === 1 ? " line" : " lines");
     const size = proposal.bytes === undefined ? "" : " " + theme.fg("muted", proposal.bytes + " bytes" + lines);
     section.addChild(new Text(theme.fg("toolTitle", inlineText(proposal.path)) + " " + theme.fg("muted", "[" + label + "]") + counts + size, 0, 0));
-    if (proposal.status === "not-applied") {
-      section.addChild(new Text(theme.fg("warning", "Not applied: the call was blocked, failed or cancelled."), 0, 0));
+    if (proposal.status === "unverified") {
+      // An error can follow a write; it does not prove the file is unchanged.
+      section.addChild(new Text(theme.fg("warning", "Did not complete — changes not verified."), 0, 0));
+      if (proposal.error) section.addChild(new Text(theme.fg("muted", "Error: " + inlineText(proposal.error)), 0, 0));
+    } else {
+      section.addChild(new Text(theme.fg("muted", "Preview built from the call's arguments without reading the file; not applied yet."), 0, 0));
     }
     if (proposal.diff) {
       const styled = coloredDiff(safeText(proposal.diff), theme);

@@ -122,7 +122,7 @@ def main():
     tmux("new-session", "-d", "-s", "pi", "-x", str(args.cols), "-y", str(args.rows), "-c", str(work), "sh", "-c", shell)
     evidence = {}
     try:
-        s = wait(lambda s: marker in s and "Proposed (not applied) (1)" in s, "first gate with proposal")
+        s = wait(lambda s: marker in s and "Proposed changes (1)" in s, "first gate with proposal")
         evidence["1-first-gate-waiting"] = s
         assert "- alpha" in s and "+ beta" in s, s
         assert "File changes" not in s, s
@@ -135,7 +135,7 @@ def main():
         for key in block_keys:
             tmux("send-keys", "-t", "pi", key)
             time.sleep(0.3)
-        s = wait(lambda s: marker in s and "Not applied" in s and "+ gamma" in s, "second gate after block")
+        s = wait(lambda s: marker in s and "Did not complete" in s and "+ gamma" in s, "second gate after block")
         evidence["3-second-gate-after-block"] = s
         assert target.read_text() == "alpha\n"
         for key in allow_keys:
@@ -143,7 +143,7 @@ def main():
             time.sleep(0.3)
         s = wait(lambda s: "SCRIPTED_DONE" in s and "File changes (1)" in s, "completed after allow")
         evidence["4-completed-after-allow"] = s
-        assert "Proposed (not applied)" not in s, s
+        assert "Proposed changes" not in s, s
         assert "+1 gamma" in s and "-1 alpha" in s, s
         assert target.read_text() == "gamma\n"
     finally:
@@ -157,7 +157,7 @@ def main():
             (out / f"{name}.txt").write_text(text)
     sessions = list((out / "sessions").rglob("*.jsonl"))
     saved = sessions[0].read_text()
-    assert "not-applied" not in saved and "Proposed (not applied)" not in saved
+    assert "unverified" not in saved and "Proposed changes" not in saved
     print("PASS: proposal visible while gate waited; block left file unchanged; allow applied and showed the real diff. Evidence:", out)
 
 

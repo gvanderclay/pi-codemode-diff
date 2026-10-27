@@ -10,7 +10,7 @@ import { registerDiffRenderer } from "./render.ts";
 import { isPiGHost } from "./host.ts";
 import type { registerPiGDisplay } from "./pig.ts";
 import { registerWriteCapture } from "./write.ts";
-import { editProposal, writeProposal } from "./proposals.ts";
+import { editProposal, firstErrorLine, writeProposal } from "./proposals.ts";
 
 export default function codemodeDiff(pi: ExtensionAPI): void | Promise<void> {
   if (typeof pi.registerToolRenderer !== "function") {
@@ -63,7 +63,7 @@ function register(pi: ExtensionAPI, createPiGDisplay?: typeof registerPiGDisplay
             : { note: "The edit tool did not provide a display diff." }),
         });
       }
-      if (event.isError) capture.reportError(event.toolCallId);
+      if (event.isError) capture.reportError(event.toolCallId, firstErrorLine(event.content));
     }
 
     if (!isCodemodeTool(event.toolName)) return;
@@ -78,7 +78,7 @@ function register(pi: ExtensionAPI, createPiGDisplay?: typeof registerPiGDisplay
     // This event carries the final outcome after every tool_result handler.
     // A later extension may reject a write whose mutation we already observed.
     if (capture.isNested(event.toolCallId)) {
-      if (event.isError) capture.reportError(event.toolCallId);
+      if (event.isError) capture.reportError(event.toolCallId, firstErrorLine(asRecord(event.result)?.content));
       else capture.settle(event.toolCallId);
     }
     try {

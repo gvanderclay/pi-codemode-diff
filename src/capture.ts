@@ -89,15 +89,18 @@ export class Capture {
     if (batch && this.deleteProposal(batch, id)) this.redraw(batch);
   }
 
-  reportError(id: string): void {
+  reportError(id: string, error?: string): void {
     const rootId = this.rootFor(id);
     const batch = rootId ? this.batches.get(rootId) : undefined;
     if (!batch) return;
     const change = batch.changes.get(id);
     const proposal = batch.proposals.get(id);
     if (change) batch.changes.set(id, { ...change, toolReportedError: true });
-    // Blocked, failed and cancelled calls look alike here: report "not applied" only.
-    if (proposal && proposal.status !== "not-applied") batch.proposals.set(id, { ...proposal, status: "not-applied" });
+    // Blocked, failed and cancelled calls look alike here; no classification is attempted.
+    // An error does not prove the file is unchanged: report it as unverified, with its reason.
+    if (proposal && (proposal.status !== "unverified" || (!proposal.error && error))) {
+      batch.proposals.set(id, { ...proposal, status: "unverified", ...(proposal.error ?? error ? { error: proposal.error ?? error } : {}) });
+    }
     if (change || proposal) this.redraw(batch);
   }
 

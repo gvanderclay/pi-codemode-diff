@@ -300,7 +300,7 @@ test("nested edit/write starts create live proposals that lifecycle events drop"
     await host.emit({ type: "tool_execution_start", toolCallId: "direct", toolName: "edit",
       args: { path: "direct.ts", edits: [{ oldText: "x", newText: "y" }] } });
     const live = view();
-    assert.match(live, /Proposed \(not applied\) \(2\)/);
+    assert.match(live, /Proposed changes \(2\)/);
     assert.match(live, /a\.ts \[edit · proposed\] \+1 -1/);
     assert.match(live, /b\.ts \[write · proposed content\] 4 bytes · 1 line/);
     assert.doesNotMatch(live, /direct\.ts/, "Direct calls never get a proposal");
@@ -310,4 +310,30 @@ test("nested edit/write starts create live proposals that lifecycle events drop"
     assert.doesNotMatch(view(), /Proposed/, type + " drops proposals");
     assert.equal(readChanges((await host.finish("root")).details), undefined);
   }
+});
+
+test("an errored nested call shows the unverified label and its sanitized, truncated first error line", async () => {
+  const host = harness();
+  type Render = NonNullable<ToolRenderers["renderResult"]>;
+  const render = host.getRenderer()("codemode", () => ({ renderResult: () => new Text("running", 0, 0) }))!.renderResult as Render;
+  const theme = { fg: (_: string, value: string) => value, bold: (value: string) => value, inverse: (value: string) => value } as unknown as Theme;
+  const context = {
+    durationMs: undefined, outputPad: 0, args: {}, toolCallId: "root", invalidate() {}, lastComponent: undefined,
+    state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
+    expanded: true, showImages: true, isError: false,
+  } as Parameters<Render>[3];
+  await host.start("root", "codemode");
+  await host.emit({ type: "tool_execution_start", toolCallId: "root/1", toolName: "edit", parentToolCallId: "root",
+    args: { path: "a.ts", edits: [{ oldText: "one", newText: "two" }] } });
+  const reason = "Denied \u001b[31mred\u001b[0m " + "x".repeat(400);
+  await host.emit({ type: "tool_execution_end", toolCallId: "root/1", toolName: "edit", parentToolCallId: "root", isError: true,
+    result: { content: [{ type: "image", data: "" }, { type: "text", text: "\n   \n" + reason + "\nsecond line" }] } });
+  const view = render({ content: [], details: {} }, { expanded: true, isPartial: true }, theme, context)
+    .render(1000).map(line => line.trimEnd()).join("\n");
+  const error = view.split("\n").find(line => line.startsWith("Error: "))!;
+  assert.match(view, /a\.ts \[edit · proposed\] \+1 -1\nDid not complete — changes not verified\.\nError: Denied /);
+  assert.doesNotMatch(view, /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/, "Escape sequences are sanitized");
+  assert.equal(error, "Error: Denied �[31mred�[0m " + "x".repeat(200 - "Denied \u001b[31mred\u001b[0m ".length) + "…");
+  assert.doesNotMatch(view, /second line|not applied yet|has not been read/);
+  assert.equal(readChanges((await host.finish("root")).details), undefined);
 });

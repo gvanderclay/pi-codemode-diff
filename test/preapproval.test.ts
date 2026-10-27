@@ -88,8 +88,8 @@ for (const position of ["before", "after"] as const) {
     const first = await gate.paused(1);
     assert.equal(first.event.toolCallId, "root/1");
     const painted = card.frames.at(-1)!;
-    assert.match(painted, /Proposed \(not applied\) \(1\)/);
-    assert.match(painted, /target\.txt \[edit · proposed\] \+1 -1\n- alpha\n\+ beta/);
+    assert.match(painted, /Proposed changes \(1\)/);
+    assert.match(painted, /target\.txt \[edit · proposed\] \+1 -1\nPreview built from the call's arguments without reading the file; not applied yet\.\n- alpha\n\+ beta/);
     assert.doesNotMatch(painted, /File changes/);
     assert.equal(card.visible(), painted, "A fresh render matches the repaint");
     card.component.setExpanded(true);
@@ -97,14 +97,14 @@ for (const position of ["before", "after"] as const) {
     card.component.setExpanded(false);
     assert.equal(await readFile(target, "utf8"), "alpha\n", "Nothing is written while the gate waits");
 
-    // 2. Block: the file is unchanged and the proposal is repainted as not applied.
+    // 2. Block: the file is unchanged and the proposal is repainted as unverified.
     first.release("block");
     const second = await gate.paused(2);
     assert.equal(await readFile(target, "utf8"), "alpha\n");
     const afterBlock = card.frames.at(-1)!;
-    assert.match(afterBlock, /Proposed \(not applied\) \(2\)/);
-    assert.match(afterBlock, /\+ gamma[\s\S]*target\.txt \[edit · proposed\] \+1 -1\nNot applied: the call was blocked, failed or cancelled\.\n- alpha\n\+ beta/,
-      "The pending proposal is listed first; the blocked one is marked not applied");
+    assert.match(afterBlock, /Proposed changes \(2\)/);
+    assert.match(afterBlock, /\+ gamma[\s\S]*target\.txt \[edit · proposed\] \+1 -1\nDid not complete — changes not verified\.\nError: Denied by test gate\n- alpha\n\+ beta/,
+      "The pending proposal is listed first; the blocked one is marked unverified with its reason");
     assert.doesNotMatch(afterBlock, /File changes/);
 
     // 3. Allow: the file changes and the real numbered diff replaces the proposal.
@@ -112,23 +112,23 @@ for (const position of ["before", "after"] as const) {
     const result = await run;
     assert.equal(result.isError, false, JSON.stringify(result.content));
     assert.equal(await readFile(target, "utf8"), "gamma\n");
-    const replaced = card.frames.find(frame => /File changes \(1\)/.test(frame) && /Proposed \(not applied\) \(1\)/.test(frame));
+    const replaced = card.frames.find(frame => /File changes \(1\)/.test(frame) && /Proposed changes \(1\)/.test(frame));
     assert.ok(replaced, "While still running, the completed diff replaces the allowed call's proposal");
     assert.doesNotMatch(replaced!, /\+ gamma/);
     assert.match(replaced!, /-1 alpha\n\+1 gamma/);
     const final = card.frames.at(-1)!;
     assert.match(final, /File changes \(1\) · 1 file/);
     assert.match(final, /-1 alpha\n\+1 gamma/);
-    assert.doesNotMatch(final, /Proposed|Not applied/, "Proposals are dropped at root end");
+    assert.doesNotMatch(final, /Proposed|Did not complete/, "Proposals are dropped at root end");
 
     // Persisted/model-facing data hold only the v1 completed change.
     const changes = readChanges(result.details)!;
     assert.deepEqual(changes.map(change => [change.toolCallId, change.kind]), [["root/2", "edit"]]);
     const payload = JSON.stringify((result.details as Record<string, unknown>)[DETAILS_KEY]);
-    assert.doesNotMatch(payload, /proposed|not-applied|pending|beta/i);
+    assert.doesNotMatch(payload, /proposed|unverified|pending|beta/i);
     assert.doesNotMatch(JSON.stringify(result.content), /Proposed|\+ beta|\+ gamma/);
     const saved = await readFile(fixture.session.sessionManager.getSessionFile()!, "utf8");
-    assert.doesNotMatch(saved, /Proposed \(not applied\)|not-applied|"proposals"/);
+    assert.doesNotMatch(saved, /Proposed changes|unverified|"proposals"/);
   });
 }
 
@@ -150,13 +150,13 @@ test("parallel gated calls on unreadable and missing files preview without readi
   ].join("\n"));
   await gate.paused(4);
   const painted = card.frames.at(-1)!;
-  assert.match(painted, /Proposed \(not applied\) \(4\)/);
+  assert.match(painted, /Proposed changes \(4\)/);
   card.component.setExpanded(true);
   const full = card.visible();
-  assert.match(full, /locked\.txt \[edit · proposed\] \+1 -1\n- supplied old\n\+ supplied new/);
-  assert.match(full, /missing\.txt \[edit · proposed\] \+2 -2\n· replacement 1\/2 \+1 -1\n- a\n\+ b\n· replacement 2\/2 \+1 -1\n- c\n\+ d/);
-  assert.match(full, /missing\.txt \[edit · proposed\] \+1 -1\n- legacy\n\+ shape/, "Same path, separate call");
-  assert.match(full, /written\.txt \[write · proposed content\] 17 bytes · 2 lines\n  proposed\n  content/);
+  assert.match(full, /locked\.txt \[edit · proposed\] \+1 -1\nPreview built from the call's arguments without reading the file; not applied yet\.\n- supplied old\n\+ supplied new/);
+  assert.match(full, /missing\.txt \[edit · proposed\] \+2 -2\nPreview built from the call's arguments without reading the file; not applied yet\.\n· replacement 1\/2 \+1 -1\n- a\n\+ b\n· replacement 2\/2 \+1 -1\n- c\n\+ d/);
+  assert.match(full, /missing\.txt \[edit · proposed\] \+1 -1\nPreview built from the call's arguments without reading the file; not applied yet\.\n- legacy\n\+ shape/, "Same path, separate call");
+  assert.match(full, /written\.txt \[write · proposed content\] 17 bytes · 2 lines\nPreview built from the call's arguments without reading the file; not applied yet\.\n  proposed\n  content/);
   assert.doesNotMatch(full, /secret contents/);
   for (const paused of gate.waiting) paused.release("block");
   const result = await run;
@@ -165,11 +165,11 @@ test("parallel gated calls on unreadable and missing files preview without readi
   assert.equal(await readFile(locked, "utf8"), "secret contents\n");
   await assert.rejects(access(join(fixture.cwd, "missing.txt")), { code: "ENOENT" });
   await assert.rejects(access(join(fixture.cwd, "written.txt")), { code: "ENOENT" });
-  assert.ok(card.frames.some(frame => (frame.match(/Not applied:/g) ?? []).length === 3), "Blocked calls are repainted as not applied before the root ends");
+  assert.ok(card.frames.some(frame => (frame.match(/Did not complete/g) ?? []).length === 3), "Blocked calls are repainted as unverified before the root ends");
   assert.doesNotMatch(card.frames.at(-1)!, /Proposed/);
 });
 
-test("an allowed edit that fails to match is reported as not applied", options, async t => {
+test("an allowed edit that fails to match is reported as unverified", options, async t => {
   const fixture = await runtimeFixture(t, { extensionPathsAfter: [gatePath] });
   await writeFile(join(fixture.cwd, "a.txt"), "original\n");
   const card = mountCard(fixture.session, fixture.cwd);
@@ -179,7 +179,7 @@ test("an allowed edit that fails to match is reported as not applied", options, 
   const result = await run;
   assert.equal(readChanges(result.details), undefined);
   assert.equal(await readFile(join(fixture.cwd, "a.txt"), "utf8"), "original\n");
-  assert.ok(card.frames.some(frame => /Not applied: the call was blocked, failed or cancelled\.\n- absent\n\+ x/.test(frame)));
+  assert.ok(card.frames.some(frame => /Did not complete — changes not verified\.\nError: [^\n]+\n- absent\n\+ x/.test(frame)));
   assert.doesNotMatch(card.frames.at(-1)!, /Proposed/);
 });
 
