@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { access, chmod, readFile, writeFile } from "node:fs/promises";
+import fs from "node:fs";
+import fsp, { access, chmod, readFile, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -167,6 +169,95 @@ test("parallel gated calls on unreadable and missing files preview without readi
   await assert.rejects(access(join(fixture.cwd, "written.txt")), { code: "ENOENT" });
   assert.ok(card.frames.some(frame => (frame.match(/Did not complete/g) ?? []).length === 3), "Blocked calls are repainted as unverified before the root ends");
   assert.doesNotMatch(card.frames.at(-1)!, /Proposed/);
+});
+
+/**
+ * Count ATTEMPTED filesystem reads/opens/stats of the given basenames, whether
+ * or not they succeed. Live ESM bindings (Pi's own named fs imports included)
+ * are refreshed with syncBuiltinESMExports, as in limits.test.ts.
+ */
+function spyOnReads(t: TestContext, names: string[]) {
+  const attempts: string[] = [];
+  let counting = false;
+  const pathOf = (value: unknown) => value instanceof URL ? value.pathname : Buffer.isBuffer(value) ? value.toString() : typeof value === "string" ? value : "";
+  // fs signatures are erased: this spy only forwards arguments.
+  const spy = (target: any, label: string, methods: string[]) => {
+    for (const method of methods) {
+      const original = target[method];
+      if (typeof original !== "function") continue;
+      t.mock.method(target, method, function (this: unknown, ...args: unknown[]) {
+        const path = pathOf(args[0]);
+        if (counting && names.some(name => path === name || path.endsWith("/" + name))) attempts.push(label + "." + method + " " + path);
+        return (original as (...a: unknown[]) => unknown).apply(this, args);
+      });
+    }
+  };
+  const callbackAndSync = ["readFile", "readFileSync", "open", "openSync", "createReadStream", "access", "accessSync",
+    "stat", "statSync", "lstat", "lstatSync", "existsSync", "realpath", "realpathSync", "opendir", "readdir"];
+  const promise = ["readFile", "open", "access", "stat", "lstat", "realpath"];
+  spy(fs, "fs", callbackAndSync);
+  spy(fs.promises, "fs.promises", promise);
+  if ((fsp as unknown) !== fs.promises) spy(fsp, "fs/promises", promise);
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  return {
+    attempts,
+    start() { counting = true; },
+    /** Run the test's own verification reads outside the counted window. */
+    async uncounted<T>(work: () => Promise<T>): Promise<T> {
+      counting = false;
+      try { return await work(); } finally { counting = true; }
+    },
+    stop() { counting = false; },
+  };
+}
+
+test("no fixture read, open or stat is attempted before approval, for edit and write, deny and allow", options, async t => {
+  const fixture = await runtimeFixture(t, { extensionPathsAfter: [gatePath] });
+  const editTarget = join(fixture.cwd, "edit-target.txt");
+  const writeTarget = join(fixture.cwd, "write-target.txt");
+  await writeFile(editTarget, "alpha\n");
+  await writeFile(writeTarget, "previous\n");
+  const card = mountCard(fixture.session, fixture.cwd);
+  const gate = installGate(t, ["edit", "write"]);
+  const reads = spyOnReads(t, ["edit-target.txt", "write-target.txt"]);
+  const of = (name: string) => reads.attempts.filter(entry => entry.endsWith(name));
+  reads.start();
+  const run = fixture.codemode([
+    'try { await tools.edit({ path: "edit-target.txt", edits: [{ oldText: "alpha", newText: "beta" }] }); } catch {}',
+    'try { await tools.write({ path: "write-target.txt", content: "denied\\n" }); } catch {}',
+    'await tools.edit({ path: "edit-target.txt", edits: [{ oldText: "alpha", newText: "gamma" }] });',
+    'await tools.write({ path: "write-target.txt", content: "allowed\\n" });',
+  ].join("\n"));
+
+  // Denied edit: zero attempts from its start through its end (and the next call's start).
+  (await gate.paused(1)).release("block");
+  await gate.paused(2);
+  assert.match(card.frames.at(-1)!, /write-target\.txt \[write · proposed content\]/);
+  assert.deepEqual(reads.attempts, [], "Neither the denied edit nor the pending write proposal touched the files");
+  // Denied write: zero attempts for the whole call.
+  gate.waiting[1].release("block");
+  await gate.paused(3);
+  assert.deepEqual(reads.attempts, []);
+  assert.equal(await reads.uncounted(() => readFile(editTarget, "utf8")), "alpha\n");
+  assert.equal(await reads.uncounted(() => readFile(writeTarget, "utf8")), "previous\n");
+
+  // Allowed edit: zero before release; its execution then reads the file (proves the spies see Pi's reads).
+  assert.match(card.frames.at(-1)!, /edit-target\.txt \[edit · proposed\][^\n]*\n[^\n]*\n- alpha\n\+ gamma/);
+  assert.deepEqual(reads.attempts, []);
+  gate.waiting[2].release("allow");
+  await gate.paused(4);
+  assert.ok(of("edit-target.txt").length > 0, "The allowed edit's own reads are observed after release");
+  assert.deepEqual(of("write-target.txt"), [], "The pending write proposal attempted no read");
+  // Allowed write: its post-approval snapshot opens the file.
+  gate.waiting[3].release("allow");
+  const result = await run;
+  reads.stop();
+  assert.equal(result.isError, false, JSON.stringify(result.content));
+  assert.ok(of("write-target.txt").length > 0, "The allowed write's snapshot is observed after release");
+  assert.equal(await readFile(editTarget, "utf8"), "gamma\n");
+  assert.equal(await readFile(writeTarget, "utf8"), "allowed\n");
+  assert.deepEqual(readChanges(result.details)!.map(change => change.tool), ["edit", "write"]);
 });
 
 test("an allowed edit that fails to match is reported as unverified", options, async t => {
