@@ -1,11 +1,19 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pyte>=0.8"]
+# ///
 """Actual PTY checks: the pre-approval proposal is shown while a real permission prompt waits.
 
-Follows native/tests/cross_host_tui.py (Python pty, fixed window, transcript
-predicates, draining shutdown), but needs only Pi and the permission package,
-not PiG. Offline: a local scripted model answers; no network model calls.
+PTY setup and draining shutdown follow native/tests/cross_host_tui.py, but the
+output is fed to a pyte terminal emulator at the same window size and every
+visibility check reads its CURRENT screen, not the byte transcript (kept only
+as evidence). Needs only Pi and the permission package, not PiG. Offline: a
+local scripted model answers; no network model calls. Run with uv, which
+installs pyte from the inline metadata into a cached environment (plain
+python3 works if pyte is importable):
 
-  python3 test/pty/preapproval_tui.py \
+  uv run test/pty/preapproval_tui.py \
     --pi <pi-coding-agent>/dist/bundle/cli.js \
     --permission-system <path to @gotgenes/pi-permission-system> \
     [--output <new empty dir>]
@@ -18,7 +26,6 @@ import json
 import os
 import pathlib
 import pty
-import re
 import select
 import shutil
 import struct
@@ -28,12 +35,40 @@ import termios
 import threading
 import time
 
+try:
+    import pyte
+except ImportError:  # pragma: no cover - depends on how the script is launched
+    raise SystemExit("This verifier needs the pyte terminal emulator. Run it with uv: uv run test/pty/preapproval_tui.py ...")
+
 REPO = pathlib.Path(__file__).resolve().parents[2]
-ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)")
 CTRL_O, DOWN, ENTER = b"\x0f", b"\x1b[B", b"\r"
 # Built at run time so the marker never appears in the script text or call arguments.
 MARKER = "PREVIEW-MARKER-"
 UNVERIFIED = "Did not complete \u2014 changes not verified."
+PROMPT = "Permission Required"
+
+
+def display(screen):
+    """The emulated terminal's current viewport, one line per row."""
+    return "\n".join(line.rstrip() for line in screen.display)
+
+
+def waiting_with_proposal(text, line):
+    """Proposal header, a diff line and the live permission prompt share one screen."""
+    return PROMPT in text and "Proposed changes (" in text and "[edit \u00b7 proposed]" in text and line in text
+
+
+def self_test():
+    """A proposal frame cleared before the prompt frame must not satisfy the check."""
+    screen = pyte.Screen(120, 40)
+    stream = pyte.ByteStream(screen)
+    stream.feed("Proposed changes (1)\r\na [edit \u00b7 proposed] +1 -1\r\n+ line 1\r\n".encode())
+    assert not waiting_with_proposal(display(screen), "+ line 1")
+    stream.feed(("\r\n" + PROMPT + "\r\n").encode())
+    assert waiting_with_proposal(display(screen), "+ line 1")
+    stream.feed(("\x1b[2J\x1b[H" + PROMPT + "\r\n").encode())
+    assert not waiting_with_proposal(display(screen), "+ line 1"), "cleared text must not count"
+    print("self-test PASS: cleared frames do not satisfy screen checks")
 
 # Each scenario: the edited path, a permission config whose ask decides it, and the gate's denial text.
 SCENARIOS = {
@@ -114,31 +149,49 @@ def verify(args, model, root, name):
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", args.rows, args.cols, 0, 0))
     transcript = bytearray()
+    # Assertions read the emulated CURRENT screen; the transcript is evidence only.
+    screen = pyte.Screen(args.cols, args.rows)
+    stream = pyte.ByteStream(screen)
 
-    def wait(process, predicate, label, offset=0):
+    def feed(chunk):
+        transcript.extend(chunk)
+        stream.feed(chunk)
+        if b"\x1b[6n" in chunk:
+            row, col = screen.cursor.y + 1, screen.cursor.x + 1
+            os.write(master, f"\x1b[{row};{col}R".encode())
+
+    def wait(process, predicate, label):
+        """Poll until predicate(current screen) holds; fail with the screen it last saw."""
         deadline = time.monotonic() + 30
-        text = ""
         while time.monotonic() < deadline:
             ready, _, _ = select.select([master], [], [], min(.2, max(0, deadline - time.monotonic())))
             if ready:
                 try:
-                    chunk = os.read(master, 65536)
+                    feed(os.read(master, 65536))
                 except OSError:
-                    chunk = b""
-                transcript.extend(chunk)
-                if b"\x1b[6n" in chunk:
-                    os.write(master, b"\x1b[1;1R")
-            text = ANSI.sub("", bytes(transcript[offset:]).decode("utf8", errors="replace"))
+                    pass
+            text = display(screen)
             if predicate(text):
                 return text
             if process.poll() is not None:
-                raise AssertionError((name, label, "exit", process.returncode, text[-2500:]))
-        raise AssertionError((name, label, "timeout", text[-2500:]))
+                raise AssertionError(f"{name}: {label}: Pi exited {process.returncode}\n--- current screen ---\n{display(screen)}")
+        raise AssertionError(f"{name}: {label}: timed out\n--- current screen ---\n{display(screen)}")
 
-    def settle(process):
-        """Drain briefly so a key's redraw is complete before the next slice starts."""
-        time.sleep(.3)
-        wait(process, lambda _s: True, "drain")
+    def settle(process, quiet=.5, limit=3):
+        """Feed output until none arrives for `quiet` seconds (redraws done), at most `limit`."""
+        deadline = time.monotonic() + limit
+        while time.monotonic() < deadline:
+            ready, _, _ = select.select([master], [], [], quiet)
+            if not ready:
+                return
+            try:
+                feed(os.read(master, 65536))
+            except OSError:
+                return
+
+    def check(condition, label):
+        if not condition:
+            raise AssertionError(f"{name}: {label}\n--- current screen ---\n{display(screen)}")
 
     def send(process, *keys):
         for key in keys:
@@ -170,37 +223,37 @@ def verify(args, model, root, name):
     checks = []
     process = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, cwd=work, env=env, start_new_session=True)
     try:
-        s = wait(process, lambda s: "Permission Required" in s and "Proposed changes (1)" in s and "more lines" in s, "proposal while the prompt waits")
-        assert "+ line 1" in s and "- alpha" in s, s[-2500:]
-        assert hidden not in s, "collapsed preview must hide the marker"
-        assert target.read_text() == "alpha\n"
-        checks += ["proposal_visible_while_waiting", "file_unchanged_while_waiting", "marker_hidden_collapsed"]
+        s = wait(process, lambda s: waiting_with_proposal(s, "+ line 1"), "proposal and prompt on one screen")
         settle(process)
-        offset = len(transcript)
+        s = display(screen)
+        check(waiting_with_proposal(s, "+ line 1"), "proposal still on screen with the prompt after redraws settle")
+        check(hidden not in s, "collapsed preview must hide the marker")
+        check(target.read_text() == "alpha\n", "file unchanged while waiting")
+        checks += ["proposal_and_prompt_on_screen", "file_unchanged_while_waiting", "marker_hidden_collapsed"]
         send(process, CTRL_O)
-        wait(process, lambda s: hidden in s and "ctrl+o collapse" in s, "Ctrl+O expands the proposal while the prompt waits", offset)
+        wait(process, lambda s: hidden in s and PROMPT in s and "ctrl+o collapse" in s, "Ctrl+O shows the marker with the prompt on screen")
+        settle(process)
+        check(hidden in display(screen) and PROMPT in display(screen), "expanded screen keeps marker and prompt")
         checks.append("expand_while_waiting")
-        settle(process)
-        offset = len(transcript)
         send(process, CTRL_O)
-        s = wait(process, lambda s: "more lines" in s, "Ctrl+O collapses again", offset)
+        wait(process, lambda s: hidden not in s and waiting_with_proposal(s, "+ line 1"), "Ctrl+O collapses: marker gone, proposal and prompt on screen")
         settle(process)
-        s = ANSI.sub("", bytes(transcript[offset:]).decode("utf8", errors="replace"))
-        assert hidden not in s, "collapsed again: marker hidden"
-        assert target.read_text() == "alpha\n"
+        check(hidden not in display(screen) and waiting_with_proposal(display(screen), "+ line 1"), "collapsed screen after settling")
+        check(target.read_text() == "alpha\n", "file unchanged after expand/collapse")
         checks.append("collapse_while_waiting")
         # Deny: options are (y) Yes, (s) Yes for this session, (n) No, (r) No with reason.
-        offset = len(transcript)
         send(process, DOWN, DOWN, ENTER)
-        s = wait(process, lambda s: UNVERIFIED in s and "Error: [pi-permission-system] The user " + denial in s and "+ gamma" in s and "Permission Required" in s, "deny marks the proposal unverified with its error", offset)
-        assert target.read_text() == "alpha\n"
-        checks += ["deny_unverified_with_error", "file_unchanged_after_deny"]
+        error = "Error: [pi-permission-system] The user " + denial
+        wait(process, lambda s: UNVERIFIED in s and error in s and waiting_with_proposal(s, "+ gamma"), "deny: unverified + error line, next proposal and prompt on screen")
         settle(process)
-        offset = len(transcript)
+        check(UNVERIFIED in display(screen) and error in display(screen), "unverified label and error stay on screen")
+        check(target.read_text() == "alpha\n", "file unchanged after deny")
+        checks += ["deny_unverified_with_error_on_screen", "file_unchanged_after_deny"]
         send(process, ENTER)
-        s = wait(process, lambda s: "SCRIPTED_DONE" in s and "File changes (1)" in s and "+1 gamma" in s and "-1 alpha" in s, "allow shows the real diff", offset)
-        assert target.read_text() == "gamma\n"
-        checks += ["allow_real_diff", "file_changed_after_allow"]
+        wait(process, lambda s: "SCRIPTED_DONE" in s and "File changes (1)" in s and "+1 gamma" in s and "-1 alpha" in s and "Proposed changes" not in s and PROMPT not in s,
+             "allow: real diff on screen, no proposal section")
+        check(target.read_text() == "gamma\n", "file changed after allow")
+        checks += ["allow_real_diff_on_screen", "no_proposal_after_completion", "file_changed_after_allow"]
     finally:
         stop(process)
         os.close(master)
@@ -219,19 +272,30 @@ def verify(args, model, root, name):
     return {"scenario": name, "edited_path": path, "permission": permission, "parent_diff_records": len(details), "checks": checks}
 
 
+def version_of(distribution):
+    from importlib.metadata import version as installed
+    return installed(distribution)
+
+
 def version(package_dir):
     return json.loads((package_dir / "package.json").read_text())["version"]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--pi", type=pathlib.Path, required=True, help="Pi's CLI .js entry (dist/bundle/cli.js)")
-    parser.add_argument("--permission-system", type=pathlib.Path, required=True, help="@gotgenes/pi-permission-system package directory")
+    parser.add_argument("--pi", type=pathlib.Path, help="Pi's CLI .js entry (dist/bundle/cli.js)")
+    parser.add_argument("--permission-system", type=pathlib.Path, help="@gotgenes/pi-permission-system package directory")
     parser.add_argument("--node", default=shutil.which("node"))
     parser.add_argument("--rows", type=int, default=40)
     parser.add_argument("--cols", type=int, default=120)
     parser.add_argument("--output", type=pathlib.Path)
+    parser.add_argument("--self-test", action="store_true", help="Only check that screen predicates ignore cleared frames")
     args = parser.parse_args()
+    if args.self_test:
+        self_test()
+        return
+    if not args.pi or not args.permission_system:
+        parser.error("--pi and --permission-system are required")
     args.pi = args.pi.resolve(strict=True)
     args.permission_system = args.permission_system.resolve(strict=True)
     if not args.pi.is_file() or not (args.permission_system / "package.json").is_file() or not args.node:
@@ -245,7 +309,8 @@ def main():
     try:
         results = {
             "host": {"pi": version(pi_package), "pi_cli_sha256": hashlib.sha256(args.pi.read_bytes()).hexdigest(),
-                     "pi_permission_system": version(args.permission_system), "window": f"{args.cols}x{args.rows}"},
+                     "pi_permission_system": version(args.permission_system), "window": f"{args.cols}x{args.rows}",
+                     "screen_checks": f"pyte {version_of('pyte')} emulated current screen"},
             "scenarios": [verify(args, model, root, name) for name in SCENARIOS],
         }
         (root / "summary.json").write_text(json.dumps(results, indent=2) + "\n")
