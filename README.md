@@ -59,6 +59,29 @@ Preview built from the call's arguments without reading the file; not applied ye
 - Budgets: replacement input over 256 KiB or 4,000 lines, or a proposal over 64 KiB or 2,000 lines, is omitted with a notice. Proposals in one parent call share a separate 256 KiB / 8,000-line budget. Paths and contents are sanitized like completed diffs.
 - Scope: native `codemode` in Pi's interactive TUI. Direct (non-codemode) calls and forwarded delegate prompts get no preview. The preview is in the codemode card above the approval prompt, not inside the prompt.
 
+### Proposals event for other extensions
+
+Other extensions can follow the current proposals on Pi's extension event bus, channel `codemode-diff:proposals` (`pi.events.on("codemode-diff:proposals", handler)`). For example, a permission forwarder can show them next to a forwarded approval prompt. The payload type is `ProposalsEvent` in `src/events.ts`:
+
+```ts
+type ProposalsEvent = {
+  version: 1;
+  proposals: Array<{
+    toolCallId: string;
+    tool: "edit" | "write";
+    path: string;
+    status: "pending" | "unverified";
+    preview?: string; // "- ", "+ ", "  ", "· replacement i/n …" lines; ≤ 16 KiB, ≤ 200 lines, then "… N more lines"
+    added?: number; removed?: number;
+    note?: string; error?: string;
+  }>;
+};
+```
+
+- **Snapshot semantics.** Each emission is the full list of the session's current proposals across all codemode calls. It is re-sent after every change: a proposal is added, becomes unverified, is replaced by its completed diff or removed, the parent call ends, or `agent_end` / session start/shutdown clears them. An empty list means none. An identical snapshot is never sent twice in a row. A nested call's proposal is in the snapshot before any `tool_call` handler (such as a permission gate) runs for it.
+- **Versioned.** `version` changes only for incompatible payload changes. Ignore unknown fields, and ignore payloads whose version you don't support.
+- Strings are sanitized and bounded like the rendered preview (no terminal control characters or ANSI). Previews are plain text built from the call's arguments without reading files, with the same "not a dry run" caveats. Treat the payload as untrusted display data: escape it for your own output, and never use it as a permission decision or as proof of what was written. The event is never model-facing, and emission errors never affect tool calls.
+
 ## Capture and persistence
 
 Successful nested edits reuse the edit tool's `details.diff`. Nested writes delegate to Pi's built-in write definition, taking a bounded previous-content snapshot inside its file mutation queue before writing. Direct edit/write calls keep their original behavior and do not acquire parent diff metadata.

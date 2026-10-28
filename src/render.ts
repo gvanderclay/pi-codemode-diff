@@ -15,7 +15,7 @@ export const PREVIEW_CHANGES = 3;
 export const PREVIEW_LINES = 8;
 
 /** File contents/path names must not inject terminal escape sequences. */
-function safeText(text: string): string {
+export function safeText(text: string): string {
   return text.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, "�").replace(/\t/g, "   ");
 }
 

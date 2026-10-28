@@ -9,6 +9,7 @@ import { asRecord, DETAILS_KEY } from "./changes.ts";
 import { registerDiffRenderer } from "./render.ts";
 import { registerWriteCapture } from "./write.ts";
 import { editProposal, firstErrorLine, writeProposal } from "./proposals.ts";
+import { PROPOSALS_EVENT, proposalsEvent } from "./events.ts";
 
 export default function codemodeDiff(pi: ExtensionAPI): void {
   if (typeof pi.registerToolRenderer !== "function") {
@@ -19,6 +20,19 @@ export default function codemodeDiff(pi: ExtensionAPI): void {
 
 function register(pi: ExtensionAPI): void {
   const capture = new Capture();
+  // Snapshot of every current proposal for other extensions; identical consecutive snapshots are skipped.
+  let lastSnapshot = JSON.stringify(proposalsEvent([]));
+  capture.onProposalsChange = () => {
+    try {
+      const event = proposalsEvent(capture.allProposals());
+      const snapshot = JSON.stringify(event);
+      if (snapshot === lastSnapshot) return;
+      lastSnapshot = snapshot;
+      pi.events?.emit(PROPOSALS_EVENT, event);
+    } catch {
+      // Never throw into the tool pipeline.
+    }
+  };
 
   // Pi's own edit argument normalization; it reads nothing from disk.
   let prepareEdit: ((args: unknown) => unknown) | undefined;

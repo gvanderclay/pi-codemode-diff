@@ -25,6 +25,8 @@ interface Batch {
 export class Capture {
   private calls = new Map<string, Call>();
   private batches = new Map<string, Batch>();
+  /** Called after anything that may change proposals; listeners dedupe. */
+  onProposalsChange?: () => void;
 
   start(id: string, name: string, parentId?: string): void {
     const parentRoot = parentId ? this.calls.get(parentId)?.rootId : undefined;
@@ -65,6 +67,7 @@ export class Capture {
     // The completed diff replaces the call's proposal.
     this.deleteProposal(batch, change.toolCallId);
     this.redraw(batch);
+    this.notify();
   }
 
   /** Record a nested call's pre-approval preview; only nested calls are accepted. */
@@ -80,13 +83,17 @@ export class Capture {
     batch.proposalBytes += Buffer.byteLength(bounded.diff ?? "", "utf8");
     batch.proposalLines += lineCount(bounded.diff ?? "");
     this.redraw(batch);
+    this.notify();
   }
 
   /** A nested call ended without error: drop any proposal it did not replace. */
   settle(id: string): void {
     const rootId = this.rootFor(id);
     const batch = rootId ? this.batches.get(rootId) : undefined;
-    if (batch && this.deleteProposal(batch, id)) this.redraw(batch);
+    if (batch && this.deleteProposal(batch, id)) {
+      this.redraw(batch);
+      this.notify();
+    }
   }
 
   reportError(id: string, error?: string): void {
@@ -102,6 +109,12 @@ export class Capture {
       batch.proposals.set(id, { ...proposal, status: "unverified", ...(proposal.error ?? error ? { error: proposal.error ?? error } : {}) });
     }
     if (change || proposal) this.redraw(batch);
+    if (proposal) this.notify();
+  }
+
+  /** Every root's proposals, roots in start order, calls in call-start order. */
+  allProposals(): Proposal[] {
+    return [...this.batches.keys()].flatMap(rootId => this.proposals(rootId));
   }
 
   proposals(rootId: string): Proposal[] {
@@ -136,11 +149,21 @@ export class Capture {
     if (!batch) return;
     for (const callId of batch.callIds) this.calls.delete(callId);
     this.batches.delete(id);
+    if (batch.proposals.size) this.notify();
   }
 
   clear(): void {
     this.calls.clear();
     this.batches.clear();
+    this.notify();
+  }
+
+  private notify(): void {
+    try {
+      this.onProposalsChange?.();
+    } catch {
+      // A consumer must never affect the tool pipeline.
+    }
   }
 
   private deleteProposal(batch: Batch, id: string): boolean {
