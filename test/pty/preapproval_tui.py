@@ -5,10 +5,9 @@
 # ///
 """Actual PTY checks: the pre-approval proposal is shown while a real permission prompt waits.
 
-PTY setup and draining shutdown follow native/tests/cross_host_tui.py, but the
-output is fed to a pyte terminal emulator at the same window size and every
-visibility check reads its CURRENT screen, not the byte transcript (kept only
-as evidence). Needs only Pi and the permission package, not PiG. Offline: a
+The PTY output is fed to a pyte terminal emulator at the same window size and
+every visibility check reads its CURRENT screen, not the byte transcript (kept
+only as evidence). Needs only Pi and the permission package. Offline: a
 local scripted model answers; no network model calls. Run with uv, which
 installs pyte from the inline metadata into a cached environment (plain
 python3 works if pyte is importable):

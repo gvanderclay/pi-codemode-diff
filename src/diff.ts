@@ -12,7 +12,7 @@ function parseLine(line: string): DiffLine | undefined {
   return match ? { prefix: match[1], lineNum: match[2], content: match[3] } : undefined;
 }
 
-/** Pi's single-line word highlighting, using the renderer's theme (also on PiG). */
+/** Pi's single-line word highlighting, using the renderer's theme. */
 function highlightWords(oldContent: string, newContent: string, theme: Theme): [string, string] {
   // Bound pathological word comparisons on the synchronous TUI render path.
   // A comparison beyond this budget still gets normal added/removed line colors.

@@ -24,8 +24,5 @@ auth.json
 # Local scratch files and PTY captures
 /.scratch/
 
-# Native Go builds and Python verification cache
-.pig/
-native/bin/
+# Python verification cache
 __pycache__/
-*.pprof
