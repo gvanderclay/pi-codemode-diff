@@ -19,7 +19,6 @@ import {
 interface FixtureOptions {
   tools?: string[];
   extensionPath?: string;
-  openCode?: "before" | "after";
   withoutDiff?: boolean;
   extraExtensions?: ExtensionFactory[];
   noTools?: "all" | "builtin";
@@ -66,9 +65,7 @@ export async function runtimeFixture(t: TestContext, options: FixtureOptions = {
     noContextFiles: true,
     additionalExtensionPaths: [
       ...(options.extensionPathsBefore ?? []),
-      ...(options.openCode === "before" ? [fileURLToPath(import.meta.resolve("pi-opencode-mode/index.js"))] : []),
       ...(options.withoutDiff ? [] : [options.extensionPath ?? fileURLToPath(new URL("../src/index.ts", import.meta.url))]),
-      ...(options.openCode === "after" ? [fileURLToPath(import.meta.resolve("pi-opencode-mode/index.js"))] : []),
       ...(options.extensionPathsAfter ?? []),
     ],
     extensionFactories: [createCodemodeExtension(), ...(options.extraExtensions ?? [])],
@@ -81,7 +78,7 @@ export async function runtimeFixture(t: TestContext, options: FixtureOptions = {
     const result = await createAgentSession({
       cwd, agentDir, modelRuntime, model: faux.getModel(), thinkingLevel: "off",
       settingsManager: settings, sessionManager, resourceLoader: loader,
-      ...(options.noTools ? { noTools: options.noTools } : { tools: options.tools ?? ["read", "edit", "write", "codemode", ...(options.openCode ? ["codemode_o"] : [])] }),
+      ...(options.noTools ? { noTools: options.noTools } : { tools: options.tools ?? ["read", "edit", "write", "codemode"] }),
     });
     session = result.session;
     await session.bindExtensions({});

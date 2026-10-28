@@ -145,7 +145,7 @@ test("highlighted Unicode replacements wrap within resized widths and retain ful
   }
 });
 
-for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: original result rendering is preserved and gets its own previous component`, () => {
+for (const rootTool of ["codemode"]) test(`${rootTool}: original result rendering is preserved and gets its own previous component`, () => {
   let resolver: Parameters<ExtensionAPI["registerToolRenderer"]>[0] | undefined;
   const capture = new Capture();
   registerDiffRenderer({
@@ -185,7 +185,7 @@ for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: original r
   assert.equal(text(collapsed).includes("line-30"), false);
 });
 
-for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: live partial results redraw and final persisted details work after cleanup`, () => {
+for (const rootTool of ["codemode"]) test(`${rootTool}: live partial results redraw and final persisted details work after cleanup`, () => {
   let resolver: Parameters<ExtensionAPI["registerToolRenderer"]>[0] | undefined;
   const capture = new Capture();
   registerDiffRenderer({ registerToolRenderer(value: typeof resolver) { resolver = value; } } as unknown as ExtensionAPI, capture);
@@ -235,7 +235,7 @@ test("Unicode, emoji, and tabs fit narrow widths after resize and invalidation",
   }
 });
 
-for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: Pi does not invent a renderer for marker-like or missing downstream renderers`, () => {
+for (const rootTool of ["codemode"]) test(`${rootTool}: Pi does not invent a renderer for marker-like or missing downstream renderers`, () => {
   let resolver: Parameters<ExtensionAPI["registerToolRenderer"]>[0] | undefined;
   registerDiffRenderer({ registerToolRenderer(value: typeof resolver) { resolver = value; } } as unknown as ExtensionAPI, new Capture());
   const marker: ToolRenderers = { renderShell: "self" };
@@ -243,7 +243,7 @@ for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: Pi does no
   assert.equal(resolver!(rootTool, () => undefined), undefined);
 });
 
-for (const rootTool of ["codemode", "codemode_o"]) test(`${rootTool}: renderer composition keeps the original call renderer and shell`, () => {
+for (const rootTool of ["codemode"]) test(`${rootTool}: renderer composition keeps the original call renderer and shell`, () => {
   let resolver: Parameters<ExtensionAPI["registerToolRenderer"]>[0] | undefined;
   registerDiffRenderer({ registerToolRenderer(value: typeof resolver) { resolver = value; } } as unknown as ExtensionAPI, new Capture());
   const base: ToolRenderers = {

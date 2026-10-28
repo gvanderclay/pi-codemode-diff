@@ -62,17 +62,11 @@ test("the packed npm artifact contains only distributable files and loads throug
   // without network access or installing duplicate host-provided modules.
   const manifest = JSON.parse(await readFile(join(directory, "package/package.json"), "utf8"));
   assert.ok(manifest.dependencies.diff);
-  assert.equal(manifest.dependencies["pi-opencode-mode"], undefined);
-  assert.equal(manifest.devDependencies["pi-opencode-mode"], "0.1.0");
   await mkdir(join(directory, "package/node_modules"));
   await cp(join(repo, "node_modules/diff"), join(directory, "package/node_modules/diff"), { recursive: true });
-  const fixture = await runtimeFixture(t, { extensionPath: join(directory, "package/src/index.ts"), openCode: "after" });
+  const fixture = await runtimeFixture(t, { extensionPath: join(directory, "package/src/index.ts") });
   const result = await fixture.codemode('await tools.write({path: "packed.txt", content: "from the packed artifact"});');
   assert.equal(result.isError, false);
   assert.equal(readChanges(result.details)?.[0].path, "packed.txt");
   assert.equal(await readFile(join(fixture.cwd, "packed.txt"), "utf8"), "from the packed artifact");
-  const openCode = await fixture.codemode('return await tools.write({path: "packed-o.txt", content: "OpenCode packed"});', "open-code", undefined, "codemode_o");
-  assert.equal(openCode.isError, false);
-  assert.equal(readChanges(openCode.details)?.[0].path, "packed-o.txt");
-  assert.equal(await readFile(join(fixture.cwd, "packed-o.txt"), "utf8"), "OpenCode packed");
 });

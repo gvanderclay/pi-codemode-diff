@@ -226,7 +226,7 @@ test("an edit without display details produces a notice rather than an invented 
   assert.match(change.note!, /did not provide/);
 });
 
-for (const name of ["codemode", "codemode_o"]) {
+for (const name of ["codemode"]) {
   test(`${name}: edit/write capture, failed-parent retention and lifecycle cleanup`, async t => {
     const host = harness();
     const dir = await temp(t);
@@ -249,7 +249,7 @@ for (const name of ["codemode", "codemode_o"]) {
   });
 }
 
-test("mixed roots remain isolated and codemode prefixes do not establish capture", async t => {
+test("only the exact codemode name establishes capture; prefixed and other names do not", async t => {
   const host = harness();
   const dir = await temp(t);
   for (const name of ["codemode", "codemode_o", "codemode_other", "codemode_o_extra", "helper"]) {
@@ -259,7 +259,7 @@ test("mixed roots remain isolated and codemode prefixes do not establish capture
     host.runWrite(dir, `${name}/1`, name, name, name)));
   for (const name of ["codemode", "codemode_o", "codemode_other", "codemode_o_extra", "helper"]) {
     const changes = readChanges((await host.finish(name, false, name)).details);
-    if (name === "codemode" || name === "codemode_o") {
+    if (name === "codemode") {
       assert.deepEqual(changes?.map(change => change.path), [name]);
     } else {
       assert.equal(changes, undefined);
