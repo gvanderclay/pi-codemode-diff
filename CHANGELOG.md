@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed
+
+- PiG support: the native Go package (`native/`), the PiG entry `src/pig-index.ts`, PiG display/detection (`src/pig.ts`, `src/host.ts`) and their tests and validation records.
+- `codemode_o` / OpenCode support: only Pi's native `codemode` establishes a capture root. The `pi-opencode-mode` development dependency and its integration tests are gone.
+
+### Added
+
 - Show a **Proposed changes** section in the live codemode card for nested `edit`/`write` calls, built from their arguments when the call starts. It is built before permission (`tool_call`) handlers run and shown while an interactive approval waits. It is a replacement preview, not a dry run: no file is read before approval.
 - A completed diff replaces the proposal; a call that ends with an error is marked "Did not complete — changes not verified", with the first line of its error text. Proposals are dropped at parent end, `agent_end` and session start/shutdown. They are never persisted, and the version-1 `details` schema, model-facing output and permission behavior are unchanged.
 - Test the display timing with Pi's real tool component and a waiting `tool_call` gate, plus an actual-PTY verifier (`uv run test/pty/preapproval_tui.py`) for the real Pi binary with `@gotgenes/pi-permission-system`, covering a tool ask and a protected-path ask. Its checks read the current screen of a pyte terminal emulator.
@@ -15,4 +22,4 @@
 - Make the TypeScript and separate Go native npm package documentation self-contained, and validate their packed documentation links and runtime files.
 - Fix relative `--pig-typescript-entry` paths in CLI/TUI verification and add regression tests.
 
-Earlier releases are listed in the [GitHub releases](https://github.com/hyein-cbio/pi-codemode-diff/releases).
+Earlier releases are upstream's; see its [GitHub releases](https://github.com/hyein-cbio/pi-codemode-diff/releases). This fork is maintained at [gvanderclay/pi-codemode-diff](https://github.com/gvanderclay/pi-codemode-diff).

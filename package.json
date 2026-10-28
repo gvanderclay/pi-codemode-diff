@@ -6,11 +6,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hyein-cbio/pi-codemode-diff.git"
+    "url": "git+https://github.com/gvanderclay/pi-codemode-diff.git"
   },
-  "homepage": "https://github.com/hyein-cbio/pi-codemode-diff#readme",
+  "homepage": "https://github.com/gvanderclay/pi-codemode-diff#readme",
   "bugs": {
-    "url": "https://github.com/hyein-cbio/pi-codemode-diff/issues"
+    "url": "https://github.com/gvanderclay/pi-codemode-diff/issues"
   },
   "publishConfig": {
     "access": "public",

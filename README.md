@@ -1,8 +1,8 @@
 # pi-codemode-diff
 
-Show file diffs for `edit` and `write` calls inside Pi's `codemode` and the optional `codemode_o` tool. Diffs stay in session display metadata, **not in model-facing tool output**.
+Show file diffs for `edit` and `write` calls inside Pi's `codemode` tool. Diffs stay in session display metadata, **not in model-facing tool output**.
 
-This npm package is the **TypeScript implementation for Pi**. PiG users can install the separate [pi-codemode-diff-native](https://www.npmjs.com/package/pi-codemode-diff-native) Go package instead. Neither package depends on the other. Load only one diff implementation per session.
+This is a personal fork of [hyein-cbio/pi-codemode-diff](https://github.com/hyein-cbio/pi-codemode-diff) (MIT; original copyright retained in [LICENSE](LICENSE)). It supports plain Pi's native `codemode` only: upstream's PiG/native Go package and `codemode_o` (OpenCode) support are removed, and it adds a pre-approval preview of proposed changes. Do not load it alongside upstream's package.
 
 ```diff
 File changes (2) · 2 files
@@ -20,28 +20,14 @@ src/main.ts [edit] +1 -1
 Requires **Pi >=1.0.1** and **Node.js >=22.19**. Pi 1.0.0 lacks the renderer API this extension needs. `codemode` must be active; this extension does not enable it or any disabled file tool.
 
 ```bash
-pi install npm:pi-codemode-diff@0.1.5
+pi install git:github.com/gvanderclay/pi-codemode-diff
 ```
 
-Run `/reload` in an existing session. Alternatively, install this release from Git:
+The `pi-codemode-diff` package on npm is upstream's, not this fork.
 
-```bash
-pi install git:github.com/hyein-cbio/pi-codemode-diff@v0.1.5
-```
+Run `/reload` in an existing session. Only the exact tool name `codemode` establishes a capture root; prefix-like tools do not.
 
-### Optional OpenCode tool
-
-`codemode_o` is provided by a separate extension, not bundled here:
-
-```bash
-pi install npm:pi-opencode-mode@0.1.0
-```
-
-Load both extensions and run `/reload`. Either load order works. Only the exact names `codemode` and `codemode_o` establish capture roots; prefix-like tools do not.
-
-The original tool still renders its script, output, warnings and duration. Its result content, structured content, script return values, usage and success/error status are unchanged. Permissions, activation, file mutation queues and diff budgets are unchanged too. OpenCode's own syntax/execution limits still apply: use `return` or `await tools.*`, not Pi-only `text()`. This extension never delegates or replays failed scripts.
-
-`pi-opencode-mode@0.1.0` is a development dependency for integration tests only; ordinary installation of this package does not install it.
+The original tool still renders its script, output, warnings and duration. Its result content, structured content, script return values, usage and success/error status are unchanged. Permissions, activation, file mutation queues and diff budgets are unchanged too. This extension never delegates or replays failed scripts.
 
 ## Preview and full view
 
@@ -71,13 +57,13 @@ Preview built from the call's arguments without reading the file; not applied ye
 - Lifecycle: a successful call's completed diff replaces its proposal. A call that ends with an error is marked **Did not complete — changes not verified**, followed by the first line of its error text (sanitized, up to 200 characters). A denial, a failed match and a cancellation are not told apart, and an error does not prove the file is unchanged (for example, a cancellation after the write). Proposals disappear when the parent call ends, and on `agent_end` and session start/shutdown. Each nested call keeps its own proposal, including parallel calls and repeated edits to one file. Collapsed view shows pending calls first.
 - Proposals are display-only and session-local. They are never added to result `details` (the version-1 schema is unchanged), to model-facing content or to the saved session. Permission decisions and file mutation are unchanged.
 - Budgets: replacement input over 256 KiB or 4,000 lines, or a proposal over 64 KiB or 2,000 lines, is omitted with a notice. Proposals in one parent call share a separate 256 KiB / 8,000-line budget. Paths and contents are sanitized like completed diffs.
-- Scope: native `codemode` in Pi's interactive TUI. `pi-opencode-mode@0.1.0`'s `codemode_o` publishes no partial results, so its card has no live section and shows no proposals. Direct (non-codemode) calls, the PiG entry and forwarded delegate prompts get no preview. The preview is in the codemode card above the approval prompt, not inside the prompt.
+- Scope: native `codemode` in Pi's interactive TUI. Direct (non-codemode) calls and forwarded delegate prompts get no preview. The preview is in the codemode card above the approval prompt, not inside the prompt.
 
 ## Capture and persistence
 
 Successful nested edits reuse the edit tool's `details.diff`. Nested writes delegate to Pi's built-in write definition, taking a bounded previous-content snapshot inside its file mutation queue before writing. Direct edit/write calls keep their original behavior and do not acquire parent diff metadata.
 
-Display data uses the unchanged version-1 `details.piCodemodeDiff` schema. Parallel parent calls are isolated by call ID, including mixed `codemode`/`codemode_o` calls. Helper-tool descendants are captured as well. Display order does not imply a global mutation order across parallel calls.
+Display data uses the unchanged version-1 `details.piCodemodeDiff` schema. Parallel parent calls are isolated by call ID. Helper-tool descendants are captured as well. Display order does not imply a global mutation order across parallel calls.
 
 Newly recorded diffs survive session resume and extension reload. Older sessions without captured diffs cannot be backfilled. A script failure does not erase writes already completed; observed writes that later report an error or cancellation show that status alongside the diff.
 
@@ -103,20 +89,6 @@ Binary, invalid UTF-8, nonregular and unreadable previous content produce notice
 - This is visibility tooling, not undo, checkpoints, backups or byte-exact recovery. Capture is not guaranteed through forced termination or every cancellation path.
 - Print/JSON/RPC model-facing result content remains unchanged. Extra inline UI is rendered by Pi's terminal components. Explicitly returning/printing file contents from a script still sends those contents to the model.
 
-## PiG users
-
-The recommended separately published package is [pi-codemode-diff-native](https://www.npmjs.com/package/pi-codemode-diff-native); its [own installation guide](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5-pig/native/README.md) covers Go source and fused binaries.
-
-This TypeScript package also includes a PiG-specific entry. PiG cannot wrap callable `next()` renderers across its Node subprocess boundary, so that entry preserves the parent card and appends persisted, non-model-facing completed diff entries instead of Pi's inline/live section.
-
-PiG 0.5.1 removed the private SDK export used by automatic detection. **Do not use the default package entry on that host.** Select the explicit file from this package instead, replacing the placeholder with its absolute installed/extracted directory:
-
-```bash
-pig -e /absolute/path/to/pi-codemode-diff/src/pig-index.ts
-```
-
-Do not load it alongside the default entry or the native implementation. Older PiG hosts exposing the exact `__runtime().api` identity can still use automatic detection. No environment-variable, executable-name, path-name or missing-renderer heuristic is used. Old PiG entries without a supported parent name render as `codemode`; metadata-only sessions are not backfilled.
-
 ## Local development
 
 From a full repository checkout:
@@ -126,7 +98,6 @@ npm ci
 npm run typecheck
 npm test
 npm run test:coverage
-python3 -m unittest discover -s native/tests -p 'test_*.py'
 ```
 
 Try the source without changing Pi settings:
@@ -137,14 +108,14 @@ pi -e /absolute/path/to/pi-codemode-diff/src/index.ts
 
 Pi installs the `diff` runtime dependency for npm/git installations. It does not install dependencies for a local path: run `npm install --omit=dev --omit=peer --ignore-scripts` in the package root for local runtime use, or `npm ci` for development. Host-provided Pi modules are peers, not bundled runtime dependencies. `/reload` picks up source changes.
 
-To check the pre-approval preview in a real terminal, run `uv run test/pty/preapproval_tui.py --pi <pi-coding-agent>/dist/bundle/cli.js --permission-system <@gotgenes/pi-permission-system directory> [--output <new-empty-dir>]`. Like the PiG TUI verifiers in `native/tests/`, it drives an actual PTY with a scripted local model and keeps the transcripts and sessions as evidence; it needs only Pi and the permission package. Its visibility checks read the current screen of a [pyte](https://pypi.org/project/pyte/) terminal emulator, not the byte transcript; `uv` installs pyte from the script's inline metadata (plain `python3` works when pyte is importable).
+To check the pre-approval preview in a real terminal, run `uv run test/pty/preapproval_tui.py --pi <pi-coding-agent>/dist/bundle/cli.js --permission-system <@gotgenes/pi-permission-system directory> [--output <new-empty-dir>]`. It drives an actual PTY with a scripted local model and keeps the transcripts and sessions as evidence. Its visibility checks read the current screen of a [pyte](https://pypi.org/project/pyte/) terminal emulator, not the byte transcript; `uv` installs pyte from the script's inline metadata (plain `python3` works when pyte is importable).
 
-Tests cover capture isolation, result preservation, bounded snapshots/diffs, filesystem edge cases, renderer composition, saved metadata, reload/resume and both tool roots. Package tests inspect both independent npm artifacts and load the extracted TS entries through Pi. Offline integration fixtures isolate workspaces, settings, credentials and sessions; they use scripted local models.
+Tests cover capture isolation, result preservation, bounded snapshots/diffs, filesystem edge cases, renderer composition, saved metadata, reload/resume and the pre-approval preview. The package test inspects the npm artifact and loads the extracted entry through Pi. Offline integration fixtures isolate workspaces, settings, credentials and sessions; they use scripted local models.
 
-Type checking and SDK tests have been checked with Pi 1.0.2 and 1.4.0. Actual Pi 1.4.0 / PiG 0.5.1 checks cover TypeScript, Go source and fused delivery, including PTY expansion/reload/resume. An actual Pi 1.4.0 PTY with `@gotgenes/pi-permission-system` 41.0.0 checks the pre-approval preview for an `edit` tool ask and a protected-path ask, on an emulated 120x40 screen: the proposal and the prompt are on screen together while it waits, Ctrl+O expands and collapses it, denial leaves the file unchanged and marks it unverified with the gate's reason, approval shows the real diff, and saved details hold only the completed change (record: `test/pty/validation/2026-10-27/preapproval-tui.json` in the repository). These are bounded scenario/version checks, not universal host or third-party-stack compatibility. The optional direct PiG Node-loader fixture needs a matching complete runtime tree and is skipped by default.
+Type checking and SDK tests have been checked with Pi 1.0.2 and 1.4.0. An actual Pi 1.4.0 PTY with `@gotgenes/pi-permission-system` 41.0.0 checks the pre-approval preview for an `edit` tool ask and a protected-path ask, on an emulated 120x40 screen: the proposal and the prompt are on screen together while it waits, Ctrl+O expands and collapses it, denial leaves the file unchanged and marks it unverified with the gate's reason, approval shows the real diff, and saved details hold only the completed change (record: `test/pty/validation/2026-10-27/preapproval-tui.json` in the repository). These are bounded scenario/version checks, not universal host or third-party-stack compatibility.
 
-See [OpenCode parity](https://github.com/hyein-cbio/pi-codemode-diff/blob/v0.1.5/native/pig/OPENCODE.md) for exact scope and evidence, [CHANGELOG.md](CHANGELOG.md) for release changes, and the [issue tracker](https://github.com/hyein-cbio/pi-codemode-diff/issues) for reports.
+See [CHANGELOG.md](CHANGELOG.md) for changes and the [issue tracker](https://github.com/gvanderclay/pi-codemode-diff/issues) for reports.
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). Originally by the authors of [hyein-cbio/pi-codemode-diff](https://github.com/hyein-cbio/pi-codemode-diff).
