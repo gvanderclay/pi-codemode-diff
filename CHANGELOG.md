@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Require Pi 1.5.0 or newer. Diff and proposal expand hints now use the running host’s configured keybinding, including custom bindings, rather than the extension’s own Pi copy.
+
 ### Removed
 
 - PiG support: the native Go package (`native/`), the PiG entry `src/pig-index.ts`, PiG display/detection (`src/pig.ts`, `src/host.ts`) and their tests and validation records.

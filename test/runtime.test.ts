@@ -6,7 +6,8 @@ import { stripVTControlCharacters } from "node:util";
 import chalk from "chalk";
 import { initTheme, ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
-import { fauxAssistantMessage, Type } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import { DETAILS_KEY, readChanges } from "../src/changes.ts";
 import { runtimeFixture } from "./runtime-fixture.ts";
 

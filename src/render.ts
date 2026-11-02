@@ -1,5 +1,4 @@
 import {
-  keyText,
   truncateToVisualLines,
   type ExtensionAPI,
   type Theme,
@@ -23,8 +22,7 @@ export function inlineText(text: string): string {
   return safeText(text).replace(/\n/g, "\\n");
 }
 
-function expandHint(theme: Theme): string {
-  const key = keyText("app.tools.expand");
+function expandHint(theme: Theme, key: string): string {
   return theme.fg("dim", key ? `${key} to expand` : "expand tool output");
 }
 
@@ -32,7 +30,7 @@ class DiffPreview implements Component {
   private width?: number;
   private lines?: string[];
 
-  constructor(private text: string, private theme: Theme) {}
+  constructor(private text: string, private theme: Theme, private expandKey: string) {}
 
   render(width: number): string[] {
     if (this.width !== width || !this.lines) {
@@ -40,7 +38,7 @@ class DiffPreview implements Component {
       this.lines = visualLines;
       if (skippedCount) {
         this.lines = [...visualLines, truncateToWidth(
-          `${this.theme.fg("muted", `… (${skippedCount} more lines,`)} ${expandHint(this.theme)}${this.theme.fg("muted", ")")}`,
+          `${this.theme.fg("muted", `… (${skippedCount} more lines,`)} ${expandHint(this.theme, this.expandKey)}${this.theme.fg("muted", ")")}`,
           width,
           "…",
         )];
@@ -56,7 +54,7 @@ class DiffPreview implements Component {
   }
 }
 
-export function diffSection(changes: readonly Change[], expanded: boolean, theme: Theme): Container {
+export function diffSection(changes: readonly Change[], expanded: boolean, theme: Theme, expandKey: string): Container {
   const section = new Container();
   if (!changes.length) return section;
   section.addChild(new Spacer(1));
@@ -79,7 +77,7 @@ export function diffSection(changes: readonly Change[], expanded: boolean, theme
     section.addChild(new Text(header, 0, 0));
     if (change.diff) {
       const styled = coloredDiff(safeText(change.diff), theme);
-      section.addChild(expanded ? new Text(styled, 0, 0) : new DiffPreview(styled, theme));
+      section.addChild(expanded ? new Text(styled, 0, 0) : new DiffPreview(styled, theme, expandKey));
     }
     if (change.note) section.addChild(new Text(theme.fg("muted", inlineText(change.note)), 0, 0));
     if (change.toolReportedError) {
@@ -88,7 +86,7 @@ export function diffSection(changes: readonly Change[], expanded: boolean, theme
   }
   if (shown.length < changes.length) {
     section.addChild(new Text(
-      `${theme.fg("muted", `… (${changes.length - shown.length} more changes,`)} ${expandHint(theme)}${theme.fg("muted", ")")}`,
+      `${theme.fg("muted", `… (${changes.length - shown.length} more changes,`)} ${expandHint(theme, expandKey)}${theme.fg("muted", ")")}`,
       0,
       0,
     ));
@@ -100,7 +98,7 @@ export function diffSection(changes: readonly Change[], expanded: boolean, theme
  * Pre-approval previews built from supplied arguments only. Labelled as not
  * applied: the text has not been matched against the file.
  */
-export function proposalSection(proposals: readonly Proposal[], expanded: boolean, theme: Theme): Container {
+export function proposalSection(proposals: readonly Proposal[], expanded: boolean, theme: Theme, expandKey: string): Container {
   const section = new Container();
   if (!proposals.length) return section;
   section.addChild(new Spacer(1));
@@ -129,13 +127,13 @@ export function proposalSection(proposals: readonly Proposal[], expanded: boolea
     }
     if (proposal.diff) {
       const styled = coloredDiff(safeText(proposal.diff), theme);
-      section.addChild(expanded ? new Text(styled, 0, 0) : new DiffPreview(styled, theme));
+      section.addChild(expanded ? new Text(styled, 0, 0) : new DiffPreview(styled, theme, expandKey));
     }
     if (proposal.note) section.addChild(new Text(theme.fg("muted", inlineText(proposal.note)), 0, 0));
   }
   if (shown.length < ordered.length) {
     section.addChild(new Text(
-      theme.fg("muted", "… (" + (ordered.length - shown.length) + " more proposed,") + " " + expandHint(theme) + theme.fg("muted", ")"),
+      theme.fg("muted", "… (" + (ordered.length - shown.length) + " more proposed,") + " " + expandHint(theme, expandKey) + theme.fg("muted", ")"),
       0,
       0,
     ));
@@ -157,10 +155,13 @@ class WrappedResult extends Container {
   private proposalExpanded?: boolean;
   private proposalTheme?: Theme;
   private pending?: Container;
+  private expandKey?: string;
+  private proposalExpandKey?: string;
 
-  getProposalSection(proposals: readonly Proposal[], expanded: boolean, theme: Theme): Container {
-    if (!this.pending || !sameItems(this.proposals, proposals) || this.proposalExpanded !== expanded || this.proposalTheme !== theme) {
-      this.pending = proposalSection(proposals, expanded, theme);
+  getProposalSection(proposals: readonly Proposal[], expanded: boolean, theme: Theme, expandKey: string): Container {
+    if (!this.pending || !sameItems(this.proposals, proposals) || this.proposalExpanded !== expanded || this.proposalTheme !== theme || this.proposalExpandKey !== expandKey) {
+      this.pending = proposalSection(proposals, expanded, theme, expandKey);
+      this.proposalExpandKey = expandKey;
       this.proposals = proposals;
       this.proposalExpanded = expanded;
       this.proposalTheme = theme;
@@ -168,10 +169,11 @@ class WrappedResult extends Container {
     return this.pending;
   }
 
-  getSection(changes: readonly Change[], expanded: boolean, theme: Theme): Container {
+  getSection(changes: readonly Change[], expanded: boolean, theme: Theme, expandKey: string): Container {
     const sameChanges = this.changes?.length === changes.length && changes.every((item, i) => item === this.changes?.[i]);
-    if (!this.section || !sameChanges || this.expanded !== expanded || this.theme !== theme) {
-      this.section = diffSection(changes, expanded, theme);
+    if (!this.section || !sameChanges || this.expanded !== expanded || this.theme !== theme || this.expandKey !== expandKey) {
+      this.section = diffSection(changes, expanded, theme, expandKey);
+      this.expandKey = expandKey;
       this.changes = changes;
       this.expanded = expanded;
       this.theme = theme;
@@ -208,10 +210,11 @@ export function registerDiffRenderer(pi: ExtensionAPI, capture: Capture): void {
         component.addChild(component.baseComponent);
         capture.watch(context.toolCallId, context.invalidate);
         const changes = readChanges(result.details) ?? capture.changes(context.toolCallId);
-        component.addChild(component.getSection(changes, options.expanded, theme));
+        const expandKey = context.keyText("app.tools.expand");
+        component.addChild(component.getSection(changes, options.expanded, theme, expandKey));
         // Proposals are live-only: never read from (or written to) result details.
         const proposals = options.isPartial ? capture.proposals(context.toolCallId) : [];
-        component.addChild(component.getProposalSection(proposals, options.expanded, theme));
+        component.addChild(component.getProposalSection(proposals, options.expanded, theme, expandKey));
         return component;
       },
     };

@@ -6,6 +6,7 @@ import { Capture } from "../src/capture.ts";
 import { DETAILS_KEY, limitChange, type Change } from "../src/changes.ts";
 import { MAX_DIFF_BYTES } from "../src/limits.ts";
 import { diffSection, PREVIEW_CHANGES, PREVIEW_LINES, registerDiffRenderer } from "../src/render.ts";
+import { expandKey, keybindingHints } from "./render-context.ts";
 
 const theme = {
   fg: (_token: string, text: string) => text,
@@ -23,12 +24,12 @@ function text(component: Component, width = 80): string {
 
 test("collapsed previews are bounded; full view retains all changes and lines", () => {
   const changes = Array.from({ length: PREVIEW_CHANGES + 2 }, (_, i) => change(`call-${i}`));
-  const preview = text(diffSection(changes, false, theme));
+  const preview = text(diffSection(changes, false, theme, expandKey));
   assert.match(preview, /more lines/);
   assert.match(preview, /2 more changes/);
   assert.equal(preview.includes("line-30"), false);
   assert.equal(preview.includes("call-4.ts"), false);
-  const full = text(diffSection(changes, true, theme));
+  const full = text(diffSection(changes, true, theme, expandKey));
   assert.match(full, /line-30/);
   assert.match(full, /call-4.ts/);
   assert.equal(full.includes("more lines"), false);
@@ -39,17 +40,17 @@ test("headers count all calls and distinct recorded paths without merging change
   const changes = paths.map((path, i) => ({ ...change(`call-${i}`), path }));
   const saved = JSON.stringify(changes);
   for (const expanded of [false, true]) {
-    const output = text(diffSection(changes, expanded, theme));
+    const output = text(diffSection(changes, expanded, theme, expandKey));
     assert.match(output, /File changes \(5\) · 2 files/);
     assert.doesNotMatch(output, /diffs? unavailable/);
     assert.equal((output.match(/same\.ts \[edit\]/g) ?? []).length, expanded ? 3 : 2);
     assert.equal(JSON.stringify(changes), saved);
   }
   const aliases = ["same.ts", "./same.ts", "/tmp/same.ts", "Same.ts", "한글.ts"];
-  assert.match(text(diffSection(aliases.map((path, i) => ({ ...change(String(i), ""), path })), false, theme)),
+  assert.match(text(diffSection(aliases.map((path, i) => ({ ...change(String(i), ""), path })), false, theme, expandKey)),
     /File changes \(5\) · 5 files/);
-  assert.match(text(diffSection([change("one", "")], false, theme)), /File changes \(1\) · 1 file\s*\n/);
-  assert.equal(text(diffSection([], false, theme)), "");
+  assert.match(text(diffSection([change("one", "")], false, theme, expandKey)), /File changes \(1\) · 1 file\s*\n/);
+  assert.equal(text(diffSection([], false, theme, expandKey)), "");
 });
 
 test("unavailable summary includes changes outside the preview and ignores note wording", () => {
@@ -59,7 +60,7 @@ test("unavailable summary includes changes outside the preview and ignores note 
     { toolCallId: "e", tool: "edit", path: "a.ts", kind: "edit" },
   ];
   for (const expanded of [false, true]) {
-    const output = text(diffSection(changes, expanded, theme));
+    const output = text(diffSection(changes, expanded, theme, expandKey));
     assert.match(output, /File changes \(5\) · 3 files · 2 diffs unavailable/);
     assert.equal(output.includes("Binary content"), expanded);
     assert.equal(output.includes("2 more changes"), !expanded);
@@ -68,13 +69,13 @@ test("unavailable summary includes changes outside the preview and ignores note 
   const empty = { ...change("empty", ""), note: "Created an empty file." };
   const unchanged = { ...change("unchanged", ""), note: "No content changes." };
   const normalized = { ...change("normalized", ""), note: "Only line endings or the UTF-8 BOM changed (normalized in this view)." };
-  assert.doesNotMatch(text(diffSection([empty, unchanged, normalized], true, theme)), /diffs? unavailable/);
+  assert.doesNotMatch(text(diffSection([empty, unchanged, normalized], true, theme, expandKey)), /diffs? unavailable/);
 });
 
 test("omitted large diffs remain notices in both preview and expanded views", () => {
   const item = limitChange(change("large", "+1 " + "secret-marker".repeat(MAX_DIFF_BYTES)));
   for (const expanded of [false, true]) {
-    const output = text(diffSection([item], expanded, theme));
+    const output = text(diffSection([item], expanded, theme, expandKey));
     assert.match(output, /File changes \(1\) · 1 file · 1 diff unavailable/);
     assert.match(output, /Diff omitted: diff too large/);
     assert.doesNotMatch(output, /secret-marker|\+0 -0|more lines/);
@@ -82,17 +83,17 @@ test("omitted large diffs remain notices in both preview and expanded views", ()
 });
 
 test("truncation uses wrapped visual lines, not just logical line count", () => {
-  const preview = diffSection([change("a", "+1 " + "x".repeat(1000))], false, theme);
+  const preview = diffSection([change("a", "+1 " + "x".repeat(1000))], false, theme, expandKey);
   const narrow = preview.render(20);
   assert.ok(narrow.every(line => visibleWidth(line) <= 20));
   assert.ok(narrow.length <= PREVIEW_LINES + 6);
   assert.match(narrow.join("\n"), /more lines/);
-  assert.ok(text(diffSection([change("a", "+1 " + "x".repeat(1000))], true, theme), 20).length > 1000);
+  assert.ok(text(diffSection([change("a", "+1 " + "x".repeat(1000))], true, theme, expandKey), 20).length > 1000);
 });
 
 test("file paths and file contents cannot inject terminal controls", () => {
   const malicious: Change = { ...change("a", "+1 \u001b[2Jsecret"), path: "a\n\u001b[2J.ts" };
-  const rendered = text(diffSection([malicious], true, theme));
+  const rendered = text(diffSection([malicious], true, theme, expandKey));
   assert.equal(rendered.includes("\u001b"), false);
   assert.match(rendered, /a\\n/);
 });
@@ -102,7 +103,7 @@ test("edit and write replacements highlight words in preview and full view witho
     const item: Change = { ...change("a", "-1 const timeout = 1000;\n+1 const timeout = 5000;"), tool, kind: tool === "edit" ? "edit" : "overwrite" };
     const saved = JSON.stringify(item);
     for (const expanded of [false, true]) {
-      const output = text(diffSection([item], expanded, theme));
+      const output = text(diffSection([item], expanded, theme, expandKey));
       assert.ok(output.includes(theme.inverse("1000")));
       assert.ok(output.includes(theme.inverse("5000")));
       assert.equal(JSON.stringify(item), saved, "Styling must not enter persisted metadata");
@@ -113,7 +114,7 @@ test("edit and write replacements highlight words in preview and full view witho
 test("replacements reducing repeated spaces preserve each line's original spacing", () => {
   const item = change("a", "-1 const  timeout = 1000;\n+1 const timeout = 1000;");
   for (const expanded of [false, true]) {
-    const output = text(diffSection([item], expanded, theme));
+    const output = text(diffSection([item], expanded, theme, expandKey));
     assert.match(output, /-1 const  timeout = 1000;/);
     assert.match(output, /\+1 const timeout = 1000;/);
   }
@@ -121,7 +122,7 @@ test("replacements reducing repeated spaces preserve each line's original spacin
 
 test("word highlighting only introduces trusted ANSI after sanitizing file content", () => {
   const item = change("a", "-1 \told\u001b[2J\u009b2J\n+1 \tnew\u001b[2J\u009b2J");
-  const output = text(diffSection([item], true, theme));
+  const output = text(diffSection([item], true, theme, expandKey));
   assert.ok(output.includes(theme.inverse("old")));
   assert.ok(output.includes(theme.inverse("new")));
   assert.equal(output.includes("\u001b[2J"), false);
@@ -134,7 +135,7 @@ test("highlighted Unicode replacements wrap within resized widths and retain ful
   const after = "before ".repeat(80) + "이후 🚀";
   const item = change("a", `-1 ${before}\n+1 ${after}`);
   for (const expanded of [false, true]) {
-    const section = diffSection([item], expanded, theme);
+    const section = diffSection([item], expanded, theme, expandKey);
     for (const width of [16, 40, 80, 16]) {
       section.invalidate();
       const lines = section.render(width);
@@ -166,10 +167,9 @@ for (const rootTool of ["codemode"]) test(`${rootTool}: original result renderin
   const result = { content: [{ type: "text" as const, text: "model output" }], details: { calls: [], [DETAILS_KEY]: { version: 1, changes: [change("a")] } } };
   type Context = Parameters<typeof render>[3];
   const context: Context = {
-    // Pi 1.1+ supplies these fields. Spreading also supports the older SDK.
-    ...{ durationMs: undefined, outputPad: 0 },
+    durationMs: undefined, outputPad: 0,
     args: { code: "..." }, toolCallId: "root", invalidate() {}, lastComponent: undefined,
-    state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: false,
+    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: false,
     expanded: false, showImages: true, isError: false,
   };
   const preview = render(result, { expanded: false, isPartial: false }, theme, context);
@@ -196,7 +196,7 @@ for (const rootTool of ["codemode"]) test(`${rootTool}: live partial results red
   const context: Parameters<typeof render>[3] = {
     ...{ durationMs: undefined, outputPad: 0 },
     args: {}, toolCallId: "root", invalidate() { invalidated++; }, lastComponent: undefined,
-    state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
+    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
     expanded: false, showImages: true, isError: false,
   };
   render({ content: [], details: {} }, { expanded: false, isPartial: true }, theme, context);
@@ -210,23 +210,60 @@ for (const rootTool of ["codemode"]) test(`${rootTool}: live partial results red
   assert.match(text(resumed), /line-30/);
 });
 
+test("host keybindings reach all diff and proposal hints, including cached rows after rebinding", () => {
+  let resolver: Parameters<ExtensionAPI["registerToolRenderer"]>[0] | undefined;
+  const capture = new Capture();
+  registerDiffRenderer({ registerToolRenderer(value: typeof resolver) { resolver = value; } } as unknown as ExtensionAPI, capture);
+  const render = resolver!("codemode", () => ({ renderResult: () => new Text("native output", 0, 0) }))!.renderResult!;
+  capture.start("root", "codemode");
+  for (let i = 0; i < PREVIEW_CHANGES + 1; i++) {
+    const id = `root/${i + 1}`;
+    capture.start(id, "edit", "root");
+    capture.propose({ toolCallId: id, tool: "edit", path: `proposed-${i}.ts`, status: "pending", diff: change(id).diff });
+  }
+  const changes = Array.from({ length: PREVIEW_CHANGES + 1 }, (_, i) => change(`done-${i}`));
+  const result = { content: [], details: { [DETAILS_KEY]: { version: 1, changes } } };
+  let binding = expandKey;
+  const context: Parameters<typeof render>[3] = {
+    ...keybindingHints,
+    keyText(action) { assert.equal(action, "app.tools.expand"); return binding; },
+    durationMs: undefined, outputPad: 0, args: {}, toolCallId: "root", invalidate() {},
+    lastComponent: undefined, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true,
+    isPartial: true, expanded: false, showImages: true, isError: false,
+  };
+  let component: Component | undefined;
+  // Same keyText function and same changes/proposals: cached sections must still
+  // update when the host reports a different binding (or disables the action).
+  for (binding of [expandKey, "alt+o", ""]) {
+    component = render(result, { expanded: false, isPartial: true }, theme, { ...context, lastComponent: component });
+    const output = text(component, 120);
+    const hint = binding ? `${binding} to expand` : "expand tool output";
+    assert.equal(output.split(hint).length - 1, 2 * (PREVIEW_CHANGES + 1));
+    assert.match(output, /1 more changes/);
+    assert.match(output, /1 more proposed/);
+    if (binding !== expandKey) assert.doesNotMatch(output, /ctrl\+shift\+o/);
+  }
+  const expanded = render(result, { expanded: true, isPartial: true }, theme, { ...context, expanded: true, lastComponent: component });
+  assert.doesNotMatch(text(expanded), /to expand|expand tool output/);
+});
+
 test("unavailable diffs show their notice without misleading zero-change counts", () => {
   const rendered = text(diffSection([{
     toolCallId: "a", tool: "write", path: "binary", kind: "unknown", note: "Text diff unavailable.",
-  }], false, theme));
+  }], false, theme, expandKey));
   assert.match(rendered, /Text diff unavailable/);
   assert.equal(rendered.includes("+0"), false);
   assert.equal(rendered.includes("-0"), false);
 });
 
 test("post-mutation errors remain visible even when the diff is collapsed", () => {
-  const rendered = text(diffSection([{ ...change("a"), toolReportedError: true }], false, theme));
+  const rendered = text(diffSection([{ ...change("a"), toolReportedError: true }], false, theme, expandKey));
   assert.match(rendered, /File change observed/);
   assert.match(rendered, /error or cancellation/);
 });
 
 test("Unicode, emoji, and tabs fit narrow widths after resize and invalidation", () => {
-  const section = diffSection([change("unicode", "+1 한글 😀\t".repeat(80))], false, theme);
+  const section = diffSection([change("unicode", "+1 한글 😀\t".repeat(80))], false, theme, expandKey);
   for (const width of [16, 40, 80, 16]) {
     section.invalidate();
     const lines = section.render(width);

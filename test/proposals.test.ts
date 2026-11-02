@@ -7,6 +7,7 @@ import { DETAILS_KEY, readChanges } from "../src/changes.ts";
 import { MAX_BATCH_DIFF_LINES, MAX_DIFF_BYTES, MAX_DIFF_LINES } from "../src/limits.ts";
 import { editProposal, MAX_PROPOSAL_INPUT_BYTES, writeProposal, type Proposal } from "../src/proposals.ts";
 import { PREVIEW_CHANGES, proposalSection, registerDiffRenderer } from "../src/render.ts";
+import { expandKey, keybindingHints } from "./render-context.ts";
 
 const theme = {
   fg: (_token: string, text: string) => text,
@@ -103,7 +104,7 @@ test("write proposals show bounded proposed content and size only", () => {
   assert.match(writeProposal("root/w1", { path: "x", content: "x".repeat(MAX_DIFF_BYTES + 1) }).note!, /too large/);
   assert.match(writeProposal("root/w1", { path: "x", content: "a\0b" }).note!, /Binary/);
   assert.match(writeProposal("root/w1", { path: "x" }).note!, /unavailable/);
-  const rendered = text(proposalSection([proposal], true, theme));
+  const rendered = text(proposalSection([proposal], true, theme, expandKey));
   assert.match(rendered, /\[write · proposed content\] 5 bytes · 2 lines/);
   assert.doesNotMatch(rendered, /overwrite|· new|create/);
 });
@@ -165,17 +166,17 @@ test("the section labels pending and unverified calls, lists pending calls first
     toolCallId: "root/" + i, tool: "edit", path: "file-" + i + ".ts", status: i === 0 ? "unverified" : "pending",
     diff: Array.from({ length: 20 }, (_, j) => "+ added-" + i + "-" + j).join("\n"), added: 20, removed: 0,
   }));
-  const collapsed = text(proposalSection(proposals, false, theme));
+  const collapsed = text(proposalSection(proposals, false, theme, expandKey));
   assert.match(collapsed, /Proposed changes \(5\)/);
   assert.match(collapsed, /file-1\.ts[^\n]*\nPreview built from the call's arguments without reading the file; not applied yet\./);
   assert.match(collapsed, /file-1\.ts \[edit · proposed\] \+20 -0/);
   assert.doesNotMatch(collapsed, /file-0\.ts/, "Pending calls come before calls that are already settled");
   assert.match(collapsed, /2 more proposed/);
   assert.doesNotMatch(collapsed, /added-1-19/);
-  const full = text(proposalSection(proposals, true, theme));
+  const full = text(proposalSection(proposals, true, theme, expandKey));
   assert.match(full, /file-0\.ts[^\n]*\nDid not complete — changes not verified\./);
   assert.match(full, /added-4-19/);
-  assert.equal(text(proposalSection([], true, theme)), "");
+  assert.equal(text(proposalSection([], true, theme, expandKey)), "");
 });
 
 test("terminal control characters in paths and replacement text are sanitized", () => {
@@ -183,7 +184,7 @@ test("terminal control characters in paths and replacement text are sanitized", 
     path: "evil\u001b]0;title\u0007\npath",
     edits: [{ oldText: "a\u001b[2J\tb", newText: "c\u009bd\r\ne" }],
   }, prepare);
-  const rendered = text(proposalSection([proposal], true, theme));
+  const rendered = text(proposalSection([proposal], true, theme, expandKey));
   assert.doesNotMatch(rendered, /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/);
   assert.match(rendered, /evil�\]0;title�\\npath/);
   assert.match(rendered, /- a�\[2J   b/);
@@ -199,7 +200,7 @@ test("the wrapped card shows proposals only while partial and never from saved d
   const context: Parameters<typeof render>[3] = {
     ...{ durationMs: undefined, outputPad: 0 },
     args: {}, toolCallId: "root", invalidate() { invalidated++; }, lastComponent: undefined,
-    state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
+    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
     expanded: false, showImages: true, isError: false,
   };
   const first = render({ content: [], details: {} }, { expanded: false, isPartial: true }, theme, context);

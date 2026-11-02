@@ -7,6 +7,7 @@ import type { ExtensionAPI, ExtensionToolContext, Theme, ToolDefinition, ToolRen
 import { Text } from "@earendil-works/pi-tui";
 import extension from "../src/index.ts";
 import { DETAILS_KEY, readChanges } from "../src/changes.ts";
+import { keybindingHints } from "./render-context.ts";
 
 type Event = Record<string, unknown>;
 type Handler = (event: Event) => unknown;
@@ -287,7 +288,7 @@ test("nested edit/write starts create live proposals that lifecycle events drop"
   const theme = { fg: (_: string, value: string) => value, bold: (value: string) => value, inverse: (value: string) => value } as unknown as Theme;
   const context = {
     durationMs: undefined, outputPad: 0, args: {}, toolCallId: "root", invalidate() {}, lastComponent: undefined,
-    state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
+    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
     expanded: true, showImages: true, isError: false,
   } as Parameters<Render>[3];
   const view = () => render({ content: [], details: {} }, { expanded: true, isPartial: true }, theme, context).render(100).join("\n");
@@ -319,7 +320,7 @@ test("an errored nested call shows the unverified label and its sanitized, trunc
   const theme = { fg: (_: string, value: string) => value, bold: (value: string) => value, inverse: (value: string) => value } as unknown as Theme;
   const context = {
     durationMs: undefined, outputPad: 0, args: {}, toolCallId: "root", invalidate() {}, lastComponent: undefined,
-    state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
+    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
     expanded: true, showImages: true, isError: false,
   } as Parameters<Render>[3];
   await host.start("root", "codemode");

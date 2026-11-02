@@ -17,7 +17,7 @@ src/main.ts [edit] +1 -1
 
 ## Install
 
-Requires **Pi >=1.0.1** and **Node.js >=22.19**. Pi 1.0.0 lacks the renderer API this extension needs. `codemode` must be active; this extension does not enable it or any disabled file tool.
+Requires **Pi >=1.5.0** and **Node.js >=22.19**. `codemode` must be active; this extension does not enable it or any disabled file tool.
 
 ```bash
 pi install git:github.com/gvanderclay/pi-codemode-diff
@@ -135,7 +135,7 @@ To check the pre-approval preview in a real terminal, run `uv run test/pty/preap
 
 Tests cover capture isolation, result preservation, bounded snapshots/diffs, filesystem edge cases, renderer composition, saved metadata, reload/resume and the pre-approval preview. The package test inspects the npm artifact and loads the extracted entry through Pi. Offline integration fixtures isolate workspaces, settings, credentials and sessions; they use scripted local models.
 
-Type checking and SDK tests have been checked with Pi 1.0.2 and 1.4.0. An actual Pi 1.4.0 PTY with `@gotgenes/pi-permission-system` 41.0.0 checks the pre-approval preview for an `edit` tool ask and a protected-path ask, on an emulated 120x40 screen: the proposal and the prompt are on screen together while it waits, Ctrl+O expands and collapses it, denial leaves the file unchanged and marks it unverified with the gate's reason, approval shows the real diff, and saved details hold only the completed change (record: `test/pty/validation/2026-10-27/preapproval-tui.json` in the repository). These are bounded scenario/version checks, not universal host or third-party-stack compatibility.
+Type checking and SDK tests target Pi 1.5.0. An actual Pi 1.4.0 PTY with `@gotgenes/pi-permission-system` 41.0.0 checks the pre-approval preview for an `edit` tool ask and a protected-path ask, on an emulated 120x40 screen: the proposal and the prompt are on screen together while it waits, Ctrl+O expands and collapses it, denial leaves the file unchanged and marks it unverified with the gate's reason, approval shows the real diff, and saved details hold only the completed change (record: `test/pty/validation/2026-10-27/preapproval-tui.json` in the repository). These are bounded scenario/version checks, not universal host or third-party-stack compatibility.
 
 See [CHANGELOG.md](CHANGELOG.md) for changes and the [issue tracker](https://github.com/gvanderclay/pi-codemode-diff/issues) for reports.
 
