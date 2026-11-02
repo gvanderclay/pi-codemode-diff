@@ -194,7 +194,7 @@ for (const rootTool of ["codemode"]) test(`${rootTool}: live partial results red
   capture.start("root", rootTool);
   capture.start("root/1", "edit", "root");
   const context: Parameters<typeof render>[3] = {
-    ...{ durationMs: undefined, outputPad: 0 },
+    durationMs: undefined, outputPad: 0,
     args: {}, toolCallId: "root", invalidate() { invalidated++; }, lastComponent: undefined,
     ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
     expanded: false, showImages: true, isError: false,

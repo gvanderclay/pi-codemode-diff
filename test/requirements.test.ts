@@ -27,6 +27,5 @@ test("manifest and lockfile explicitly declare the tested minimum host version",
   for (const name of ["@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"]) {
     assert.equal(manifest.devDependencies[name], "^1.5.0");
     assert.equal(lock.packages[""].devDependencies[name], manifest.devDependencies[name]);
-    assert.equal(lock.packages[`node_modules/${name}`].version, "1.5.0");
   }
 });

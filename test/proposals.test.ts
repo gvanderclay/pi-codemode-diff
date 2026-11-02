@@ -198,7 +198,7 @@ test("the wrapped card shows proposals only while partial and never from saved d
   const render = resolver!("codemode", () => ({ renderResult: () => new Text("running", 0, 0) }))!.renderResult!;
   let invalidated = 0;
   const context: Parameters<typeof render>[3] = {
-    ...{ durationMs: undefined, outputPad: 0 },
+    durationMs: undefined, outputPad: 0,
     args: {}, toolCallId: "root", invalidate() { invalidated++; }, lastComponent: undefined,
     ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
     expanded: false, showImages: true, isError: false,
