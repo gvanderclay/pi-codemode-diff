@@ -1,6 +1,6 @@
 import { isCodemodeTool } from "./tools.ts";
 import { limitChange, type Change, type DiffDetails } from "./changes.ts";
-import { MAX_BATCH_DIFF_BYTES, MAX_BATCH_DIFF_LINES, lineCount } from "./limits.ts";
+import { DisplayBudget } from "./budget.ts";
 import { limitProposal, type Proposal } from "./proposals.ts";
 
 interface Call {
@@ -12,12 +12,10 @@ interface Batch {
   callIds: Set<string>;
   changes: Map<string, Change>;
   nextOrder: number;
-  diffBytes: number;
-  diffLines: number;
+  diffBudget: DisplayBudget;
   /** Pre-approval previews: a separate map and budget, never part of details(). */
   proposals: Map<string, Proposal>;
-  proposalBytes: number;
-  proposalLines: number;
+  proposalBudget: DisplayBudget;
   invalidate?: () => void;
 }
 
@@ -35,8 +33,8 @@ export class Capture {
     let batch = this.batches.get(rootId);
     if (!batch) {
       batch = {
-        callIds: new Set(), changes: new Map(), nextOrder: 0, diffBytes: 0, diffLines: 0,
-        proposals: new Map(), proposalBytes: 0, proposalLines: 0,
+        callIds: new Set(), changes: new Map(), nextOrder: 0, diffBudget: new DisplayBudget(),
+        proposals: new Map(), proposalBudget: new DisplayBudget(),
       };
       this.batches.set(rootId, batch);
     }
@@ -57,13 +55,9 @@ export class Capture {
     const rootId = this.rootFor(change.toolCallId);
     const batch = rootId ? this.batches.get(rootId) : undefined;
     if (!batch) return;
-    const previous = batch.changes.get(change.toolCallId)?.diff ?? "";
-    const bytes = batch.diffBytes - Buffer.byteLength(previous, "utf8");
-    const lines = batch.diffLines - lineCount(previous);
-    const bounded = limitChange(change, MAX_BATCH_DIFF_BYTES - bytes, MAX_BATCH_DIFF_LINES - lines);
+    batch.diffBudget.release(change.toolCallId);
+    const bounded = limitChange(change, batch.diffBudget);
     batch.changes.set(change.toolCallId, bounded);
-    batch.diffBytes = bytes + Buffer.byteLength(bounded.diff ?? "", "utf8");
-    batch.diffLines = lines + lineCount(bounded.diff ?? "");
     // The completed diff replaces the call's proposal.
     this.deleteProposal(batch, change.toolCallId);
     this.redraw(batch);
@@ -76,12 +70,8 @@ export class Capture {
     const batch = this.batches.get(this.rootFor(proposal.toolCallId)!);
     if (!batch) return;
     this.deleteProposal(batch, proposal.toolCallId);
-    const bounded = limitProposal(
-      proposal, MAX_BATCH_DIFF_BYTES - batch.proposalBytes, MAX_BATCH_DIFF_LINES - batch.proposalLines,
-    );
+    const bounded = limitProposal(proposal, batch.proposalBudget);
     batch.proposals.set(proposal.toolCallId, bounded);
-    batch.proposalBytes += Buffer.byteLength(bounded.diff ?? "", "utf8");
-    batch.proposalLines += lineCount(bounded.diff ?? "");
     this.redraw(batch);
     this.notify();
   }
@@ -170,8 +160,7 @@ export class Capture {
     const proposal = batch.proposals.get(id);
     if (!proposal) return false;
     batch.proposals.delete(id);
-    batch.proposalBytes -= Buffer.byteLength(proposal.diff ?? "", "utf8");
-    batch.proposalLines -= lineCount(proposal.diff ?? "");
+    batch.proposalBudget.release(id);
     return true;
   }
 

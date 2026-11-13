@@ -1,8 +1,6 @@
 import { generateDiffString } from "@earendil-works/pi-coding-agent";
-import {
-  MAX_BATCH_DIFF_BYTES, MAX_BATCH_DIFF_LINES, MAX_DIFF_BYTES, MAX_DIFF_LINES,
-  lineCount, textFits, writeTextFits,
-} from "./limits.ts";
+import { DisplayBudget } from "./budget.ts";
+import { MAX_DIFF_BYTES, MAX_DIFF_LINES, textFits, writeTextFits } from "./limits.ts";
 import { displayText } from "./text.ts";
 
 /** Rendering metadata only: never add this payload to model-facing content. */
@@ -54,14 +52,8 @@ export function readChanges(details: unknown): Change[] | undefined {
   if (!valid) return undefined;
   // Older sessions may contain unbounded diffs. Bound their display too, without
   // rewriting the saved transcript or changing model-facing results.
-  let bytes = MAX_BATCH_DIFF_BYTES;
-  let lines = MAX_BATCH_DIFF_LINES;
-  return (payload.changes as Change[]).map(change => {
-    const bounded = limitChange(change, bytes, lines);
-    bytes -= Buffer.byteLength(bounded.diff ?? "", "utf8");
-    lines -= lineCount(bounded.diff ?? "");
-    return bounded;
-  });
+  const budget = new DisplayBudget();
+  return (payload.changes as Change[]).map((change, index) => limitChange(change, budget, String(index)));
 }
 
 function validSize(value: unknown): boolean {
@@ -71,13 +63,13 @@ function validSize(value: unknown): boolean {
 /** Shared by write generation, edit capture, and resumed-session rendering. */
 export function limitChange(
   change: Change,
-  remainingBytes = MAX_BATCH_DIFF_BYTES,
-  remainingLines = MAX_BATCH_DIFF_LINES,
+  budget?: DisplayBudget,
+  key = change.toolCallId,
 ): Change {
   if (change.diff === undefined) return change;
   const reason = !textFits(change.diff, MAX_DIFF_BYTES, MAX_DIFF_LINES)
     ? "diff too large"
-    : !textFits(change.diff, remainingBytes, remainingLines)
+    : budget && !budget.charge(key, change.diff)
       ? "codemode diff budget exceeded"
       : undefined;
   if (!reason) return change;

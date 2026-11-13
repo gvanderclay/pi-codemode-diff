@@ -1,4 +1,5 @@
 import { diffLines } from "diff";
+import { DisplayBudget } from "./budget.ts";
 import { asRecord } from "./changes.ts";
 import {
   MAX_DIFF_BYTES, MAX_DIFF_LINES, MAX_TEXT_BYTES, MAX_TEXT_LINES, lineCount, textFits,
@@ -173,8 +174,8 @@ export function firstErrorLine(content: unknown): string | undefined {
 }
 
 /** Per-root budget, separate from completed diffs. */
-export function limitProposal(proposal: Proposal, remainingBytes: number, remainingLines: number): Proposal {
-  if (proposal.diff === undefined || textFits(proposal.diff, remainingBytes, remainingLines)) return proposal;
+export function limitProposal(proposal: Proposal, budget: DisplayBudget): Proposal {
+  if (proposal.diff === undefined || budget.charge(proposal.toolCallId, proposal.diff)) return proposal;
   const { diff: _diff, ...metadata } = proposal;
   return { ...metadata, note: "Preview omitted: codemode preview budget exceeded." };
 }

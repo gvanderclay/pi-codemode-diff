@@ -44,7 +44,7 @@ test("the packed npm artifact contains only distributable files and loads throug
   for (const required of [
     "package.json", "README.md", "CHANGELOG.md", "LICENSE",
     "src/index.ts", "src/capture.ts", "src/changes.ts", "src/write.ts", "src/render.ts",
-    "src/diff.ts", "src/limits.ts", "src/tools.ts",
+    "src/diff.ts", "src/limits.ts", "src/budget.ts", "src/tools.ts",
     "src/proposals.ts", "src/events.ts", "src/text.ts",
   ]) {
     assert.ok(files.includes(required), `${required} must be distributed`);
