@@ -141,8 +141,7 @@ test("capture keeps proposals per call id, separate from completed diffs", () =>
 
   capture.add({ toolCallId: "root/1", tool: "edit", path: "same.ts", kind: "edit", diff: "-1 a\n+1 b" });
   capture.reportError("root/2");
-  capture.settle("root/3");
-  assert.deepEqual(capture.proposals("root").map(p => [p.toolCallId, p.status]), [["root/2", "unverified"]]);
+  assert.deepEqual(capture.proposals("root").map(p => [p.toolCallId, p.status]), [["root/2", "unverified"], ["root/3", "pending"]]);
   const details = JSON.stringify(capture.details("root"));
   assert.deepEqual(capture.details("root")!.changes.map(c => c.toolCallId), ["root/1"]);
   assert.doesNotMatch(details, /unverified|pending|- c/);

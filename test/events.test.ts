@@ -61,12 +61,10 @@ test("snapshots follow add, unverified-with-error, completion, removal and root 
     toolCallId: "root/1", tool: "edit", path: "a.ts", status: "unverified", preview: "- one\n+ two", added: 1, removed: 1, error: "Blocked by gate",
   });
 
-  // Success: the completed diff replaces root/3's proposal; a plain successful end removes root/2's.
+  // Success: the completed diff replaces root/3's proposal.
   await host.emit({ type: "tool_result", toolCallId: "root/3", toolName: "edit", input: edit("c", "d", "c.ts"), isError: false,
     content: [], details: { diff: "-1 c\n+1 d" } });
   assert.deepEqual(host.last().proposals.map(p => p.toolCallId), ["root/1", "root/2"]);
-  await host.end("root/2", "write", false, { content: [] }, "root");
-  assert.deepEqual(host.last().proposals.map(p => p.toolCallId), ["root/1"]);
 
   await host.end("root", "codemode", false);
   assert.deepEqual(host.last(), { version: 1, proposals: [] });

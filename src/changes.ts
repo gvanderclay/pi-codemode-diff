@@ -77,17 +77,9 @@ export function limitChange(
   return { ...metadata, note: `Diff omitted: ${reason}.${change.note ? ` ${change.note}` : ""}` };
 }
 
-/** A nested edit's Change from its tool result: the display diff, or a notice when none was supplied. */
-export function editChange(toolCallId: string, path: string, diff: unknown): Change {
-  return {
-    toolCallId,
-    tool: "edit",
-    path,
-    kind: "edit",
-    ...(typeof diff === "string"
-      ? { diff }
-      : { note: "The edit tool did not provide a display diff." }),
-  };
+/** A nested edit's Change from the edit tool's display diff. */
+export function editChange(toolCallId: string, path: string, diff: string): Change {
+  return { toolCallId, tool: "edit", path, kind: "edit", diff };
 }
 
 export type BeforeWrite =

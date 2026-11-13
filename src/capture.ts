@@ -77,24 +77,6 @@ export class Capture {
     this.notify();
   }
 
-  /**
-   * A nested call ended without error: drop any proposal it did not replace.
-   *
-   * Defensive: with stock Pi a successful nested edit records its Change in
-   * tool_result and a successful nested write records its Change inside the
-   * write tool, both before tool_execution_end, and add() already replaced the
-   * proposal. settle() matters when another extension flips isError from true
-   * to false, or when our own tool_result handling failed.
-   */
-  settle(id: string): void {
-    const rootId = this.rootFor(id);
-    const batch = rootId ? this.batches.get(rootId) : undefined;
-    if (batch && this.deleteProposal(batch, id)) {
-      this.redraw(batch);
-      this.notify();
-    }
-  }
-
   reportError(id: string, error?: string): void {
     const rootId = this.rootFor(id);
     const batch = rootId ? this.batches.get(rootId) : undefined;

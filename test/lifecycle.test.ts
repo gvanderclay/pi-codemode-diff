@@ -27,6 +27,8 @@ interface Case {
   changes: unknown[];
   /** Relevant Proposal fields, in capture order. */
   proposals: unknown[];
+  /** Proposals after the first `afterSteps` steps, before the remaining steps run. */
+  mid?: { afterSteps: number; proposals: unknown[] };
   /** What the root's tool_result handler returned; undefined when the case delivers no root result. */
   rootResult?: unknown;
 }
@@ -58,12 +60,6 @@ const cases: Case[] = [
     proposals: [],
   },
   {
-    name: "a nested edit result without a display diff records a notice instead",
-    steps: [rootStart(), editStart(), editResult(undefined), editEnd()],
-    changes: [{ toolCallId: "root/1", tool: "edit", path: "a.ts", kind: "edit", note: "The edit tool did not provide a display diff." }],
-    proposals: [],
-  },
-  {
     name: "a call blocked before execution leaves an unverified proposal and no Change",
     steps: [rootStart(), editStart(), editEnd(true, { content: [{ type: "text", text: "Denied\nmore" }] })],
     changes: [],
@@ -80,16 +76,6 @@ const cases: Case[] = [
     proposals: [{ ...PENDING_EDIT, status: "unverified", error: "Failed to match" }],
   },
   {
-    name: "an extension that flips isError to false settles the call without a Change",
-    steps: [
-      rootStart(), editStart(),
-      editResult(undefined, true, [{ type: "text", text: "Denied" }]),
-      editEnd(false),
-    ],
-    changes: [],
-    proposals: [],
-  },
-  {
     name: "a nested write start publishes a pending proposal; its Change comes from the write tool",
     steps: [
       rootStart(),
@@ -97,6 +83,21 @@ const cases: Case[] = [
     ],
     changes: [],
     proposals: [{ toolCallId: "root/1", tool: "write", path: "b.ts", status: "pending", diff: "  x" }],
+  },
+  {
+    name: "a nested write that ends without a Change keeps its proposal until the root ends",
+    steps: [
+      rootStart(),
+      { type: "tool_execution_start", toolCallId: "root/1", toolName: "write", parentToolCallId: "root", args: { path: "b.ts", content: "x\n" } },
+      { type: "tool_execution_end", toolCallId: "root/1", toolName: "write", parentToolCallId: "root", isError: false, result: {} },
+      { type: "tool_execution_end", toolCallId: "root", toolName: "codemode", isError: false, result: {} },
+    ],
+    mid: {
+      afterSteps: 3,
+      proposals: [{ toolCallId: "root/1", tool: "write", path: "b.ts", status: "pending", diff: "  x" }],
+    },
+    changes: [],
+    proposals: [],
   },
   {
     name: "a root that is not the exact codemode tool records nothing and returns no details",
@@ -164,7 +165,9 @@ function drive(item: Case) {
   const capture = new Capture();
   const lifecycle = new NestedCallLifecycle(capture, item.prepareEdit);
   let rootReturn: ToolResultEventResult | undefined;
-  for (const step of item.steps) {
+  let midProposals: unknown[] | undefined;
+  for (const [index, step] of item.steps.entries()) {
+    if (index === item.mid?.afterSteps) midProposals = capture.proposals("root").map(summarizeProposal);
     if (step.type === "tool_execution_start") {
       lifecycle.executionStarted(step as unknown as ToolExecutionStartEvent);
     } else if (step.type === "tool_result") {
@@ -177,6 +180,7 @@ function drive(item: Case) {
   return {
     changes: capture.changes("root").map(summarizeChange),
     proposals: capture.proposals("root").map(summarizeProposal),
+    midProposals,
     rootResult: rootReturn === undefined ? undefined : JSON.parse(JSON.stringify(rootReturn)),
   };
 }
@@ -186,6 +190,7 @@ for (const item of cases) {
     const actual = drive(item);
     assert.deepEqual(actual.changes, item.changes, "capture.changes(\"root\")");
     assert.deepEqual(actual.proposals, item.proposals, "capture.proposals(\"root\")");
+    assert.deepEqual(actual.midProposals, item.mid?.proposals, "capture.proposals(\"root\") before the remaining steps");
     assert.deepEqual(actual.rootResult, item.rootResult, "the root's tool_result return value");
   });
 }

@@ -217,16 +217,6 @@ test("no changes means no metadata, and new sessions clear in-flight state", asy
   assert.equal((result.details as Event)[DETAILS_KEY], undefined);
 });
 
-test("an edit without display details produces a notice rather than an invented diff", async () => {
-  const host = harness();
-  await host.start("root", "codemode");
-  await host.start("root/1", "edit", "root");
-  await host.emit({ type: "tool_result", toolCallId: "root/1", toolName: "edit", input: { path: "a" }, content: [], details: undefined, isError: false });
-  const change = readChanges((await host.finish("root")).details)![0];
-  assert.equal(change.diff, undefined);
-  assert.match(change.note!, /did not provide/);
-});
-
 for (const name of ["codemode"]) {
   test(`${name}: edit/write capture, failed-parent retention and lifecycle cleanup`, async t => {
     const host = harness();
@@ -301,8 +291,6 @@ test("nested edit/write starts create live proposals that lifecycle events drop"
     assert.match(live, /a\.ts \[edit · proposed\] \+1 -1/);
     assert.match(live, /b\.ts \[write · proposed content\] 4 bytes · 1 line/);
     assert.doesNotMatch(live, /direct\.ts/, "Direct calls never get a proposal");
-    await host.emit({ type: "tool_execution_end", toolCallId: "root/2", toolName: "write", parentToolCallId: "root", isError: false, result: {} });
-    assert.doesNotMatch(view(), /b\.ts/, "A successful end without a captured change drops the proposal");
     await host.emit({ type });
     assert.doesNotMatch(view(), /Proposed/, type + " drops proposals");
     assert.equal(readChanges((await host.finish("root")).details), undefined);

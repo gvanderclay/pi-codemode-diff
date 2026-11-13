@@ -19,8 +19,6 @@ import { isCodemodeTool } from "./tools.ts";
  * - A call that never executes (blocked by a tool_call handler, tool not found,
  *   validation failure, abort) gets tool_execution_start → tool_execution_end
  *   with isError true and NO tool_result.
- * - tool_execution_end carries the final outcome after every tool_result
- *   handler; another extension's tool_result handler can flip isError either way.
  */
 export class NestedCallLifecycle {
   constructor(
@@ -44,8 +42,8 @@ export class NestedCallLifecycle {
   toolResult(event: ToolResultEvent): ToolResultEventResult | undefined {
     try {
       if (this.capture.isNested(event.toolCallId)) {
-        if (isEditToolResult(event) && !event.isError && typeof event.input.path === "string") {
-          this.capture.add(editChange(event.toolCallId, event.input.path, event.details?.diff));
+        if (isEditToolResult(event) && !event.isError && event.details) {
+          this.capture.add(editChange(event.toolCallId, event.input.path as string, event.details.diff));
         }
         if (event.isError) this.capture.reportError(event.toolCallId, firstErrorLine(event.content));
       }
@@ -64,11 +62,9 @@ export class NestedCallLifecycle {
 
   executionEnded(event: ToolExecutionEndEvent): void {
     try {
-      // This event carries the final outcome after every tool_result handler.
-      // A later extension may reject a write whose mutation we already observed.
-      if (this.capture.isNested(event.toolCallId)) {
-        if (event.isError) this.capture.reportError(event.toolCallId, firstErrorLine(asRecord(event.result)?.content));
-        else this.capture.settle(event.toolCallId);
+      // Calls that never execute (blocked by a tool_call handler, aborted, not found, invalid) get no tool_result: their error arrives only here.
+      if (this.capture.isNested(event.toolCallId) && event.isError) {
+        this.capture.reportError(event.toolCallId, firstErrorLine(asRecord(event.result)?.content));
       }
       this.capture.end(event.toolCallId);
     } catch {

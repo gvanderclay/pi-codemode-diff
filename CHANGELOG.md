@@ -7,6 +7,7 @@
 - The Proposed changes summary shows its file count, like File changes, and its collapsed trailer reads "N more proposed changes".
 - Require Pi 1.5.0 or newer. Diff and proposal expand hints now use the running host’s configured keybinding, including custom bindings, rather than the extension’s own Pi copy.
 - Proposal previews drop a leading UTF-8 BOM and normalize CRLF/CR line endings like completed write diffs.
+- Support only stock Pi tool behavior plus permission-gate extensions: removed handling for extensions that flip tool results or strip the edit tool's diff.
 
 ### Removed
 
