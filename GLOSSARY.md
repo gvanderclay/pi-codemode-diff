@@ -12,6 +12,10 @@ Domain terms used in the code, tests and reviews of pi-codemode-diff.
 
 **Proposal**: a pre-approval preview of a nested call, built from its arguments alone, without reading the file. A Proposal is live only: it is never persisted, never shown to the model, and is replaced by the call's Change when one is recorded. Status `pending` while the call waits or runs. Status `unverified` when the call ended with an error, because an error does not prove the file is unchanged.
 
+**Nested call lifecycle**: how a nested call moves through Pi's events: started (a Proposal is recorded), result (a Change is recorded, or the error is noted), ended (the Proposal is settled or marked unverified). At the root's end the batch is dropped. Implemented in `src/lifecycle.ts`.
+
+**Previous content**: what a write's target held before the write: missing, text, omitted (too large to diff) or unavailable (binary, not UTF-8, not a regular file, unreadable). It decides the write Change's kind and whether it can be diffed. Implemented in `src/snapshot.ts`.
+
 **Display budget**: byte and line limits on what is displayed. Over a limit, text is omitted or cut and a notice says so. Budgets never restrict file mutations or model-facing results.
 
 **Display text**: text prepared for a terminal or the proposals event. Control characters are replaced, tabs expanded and line endings normalized. Inline display text also escapes newlines.
