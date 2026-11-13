@@ -83,6 +83,13 @@ export type BeforeWrite =
   | { kind: "omitted"; sizeBytes: number }
   | { kind: "unavailable"; reason: string };
 
+/** The Change kind a write gets from what was there before it. */
+export function writeKind(before: BeforeWrite): Change["kind"] {
+  if (before.kind === "missing") return "create";
+  if (before.kind === "text" || before.kind === "omitted") return "overwrite";
+  return "unknown";
+}
+
 /** The snapshot is used for presentation, not retained as a file backup. */
 export function writeChange(
   toolCallId: string,
@@ -94,7 +101,7 @@ export function writeChange(
     toolCallId,
     tool: "write",
     path,
-    kind: before.kind === "missing" ? "create" : before.kind === "text" || before.kind === "omitted" ? "overwrite" : "unknown",
+    kind: writeKind(before),
   };
   if (before.kind === "unavailable") return { ...base, note: before.reason };
   if (before.kind === "omitted" || !writeTextFits(content) ||
