@@ -9,18 +9,10 @@ import type { Capture } from "./capture.ts";
 import { countChanges, readChanges, type Change } from "./changes.ts";
 import { coloredDiff } from "./diff.ts";
 import type { Proposal } from "./proposals.ts";
+import { inlineText, safeText } from "./text.ts";
 
 export const PREVIEW_CHANGES = 3;
 export const PREVIEW_LINES = 8;
-
-/** File contents/path names must not inject terminal escape sequences. */
-export function safeText(text: string): string {
-  return text.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, "�").replace(/\t/g, "   ");
-}
-
-export function inlineText(text: string): string {
-  return safeText(text).replace(/\n/g, "\\n");
-}
 
 function expandHint(theme: Theme, key: string): string {
   return theme.fg("dim", key ? `${key} to expand` : "expand tool output");

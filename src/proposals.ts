@@ -3,6 +3,7 @@ import { asRecord } from "./changes.ts";
 import {
   MAX_DIFF_BYTES, MAX_DIFF_LINES, MAX_TEXT_BYTES, MAX_TEXT_LINES, lineCount, textFits,
 } from "./limits.ts";
+import { displayText } from "./text.ts";
 
 /**
  * A nested edit/write built from the call's supplied arguments only, before any
@@ -44,10 +45,6 @@ const UNAVAILABLE = "Preview unavailable:";
 function boundedPath(value: unknown): string {
   if (typeof value !== "string" || !value) return "(no path supplied)";
   return value.length > MAX_PATH_CHARS ? `${value.slice(0, MAX_PATH_CHARS)}…` : value;
-}
-
-function displayText(text: string): string {
-  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }
 
 function splitLines(text: string): string[] {

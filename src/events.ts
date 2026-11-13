@@ -1,5 +1,5 @@
 import type { Proposal } from "./proposals.ts";
-import { inlineText, safeText } from "./render.ts";
+import { inlineText, safeText } from "./text.ts";
 
 /** Event bus channel for cross-extension consumers (e.g. permission forwarders). */
 export const PROPOSALS_EVENT = "codemode-diff:proposals";

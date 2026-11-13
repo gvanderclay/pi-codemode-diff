@@ -109,6 +109,23 @@ test("write proposals show bounded proposed content and size only", () => {
   assert.doesNotMatch(rendered, /overwrite|· new|create/);
 });
 
+test("proposal previews drop a leading UTF-8 BOM and normalize line endings", () => {
+  assert.equal(writeProposal("w", { path: "a", content: "\uFEFFhello\r\n" }).diff, "  hello");
+  const bom = editProposal("root/1", {
+    path: "a",
+    edits: [{ oldText: "\uFEFFone\r\ntwo", newText: "uno\ntwo" }],
+  }, prepare);
+  assert.doesNotMatch(bom.diff!, /\uFEFF/);
+  assert.match(bom.diff!, /^- one$/m);
+  assert.match(bom.diff!, /^\+ uno$/m);
+  assert.match(bom.diff!, /^  two$/m);
+  const normalized = editProposal("root/1", {
+    path: "a",
+    edits: [{ oldText: "\uFEFFone\r\ntwo", newText: "one\ntwo" }],
+  }, prepare);
+  assert.equal(normalized.diff, "  one\n  two");
+});
+
 test("capture keeps proposals per call id, separate from completed diffs", () => {
   const capture = nestedCapture("root/1", "root/2", "root/3");
   let redraws = 0;

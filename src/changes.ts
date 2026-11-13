@@ -3,6 +3,7 @@ import {
   MAX_BATCH_DIFF_BYTES, MAX_BATCH_DIFF_LINES, MAX_DIFF_BYTES, MAX_DIFF_LINES,
   lineCount, textFits, writeTextFits,
 } from "./limits.ts";
+import { displayText } from "./text.ts";
 
 /** Rendering metadata only: never add this payload to model-facing content. */
 export const DETAILS_KEY = "piCodemodeDiff";
@@ -100,10 +101,6 @@ export type BeforeWrite =
   | { kind: "text"; content: string }
   | { kind: "omitted"; sizeBytes: number }
   | { kind: "unavailable"; reason: string };
-
-function displayText(text: string): string {
-  return text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-}
 
 /** The snapshot is used for presentation, not retained as a file backup. */
 export function writeChange(
