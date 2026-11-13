@@ -23,8 +23,8 @@ interface Batch {
 export class Capture {
   private calls = new Map<string, Call>();
   private batches = new Map<string, Batch>();
-  /** Called after anything that may change proposals; listeners dedupe. */
-  onProposalsChange?: () => void;
+  /** Called with every current proposal after anything that may change them; listeners dedupe. */
+  onProposalsChange?: (proposals: Proposal[]) => void;
 
   start(id: string, name: string, parentId?: string): void {
     const parentRoot = parentId ? this.calls.get(parentId)?.rootId : undefined;
@@ -59,9 +59,10 @@ export class Capture {
     const bounded = limitChange(change, batch.diffBudget);
     batch.changes.set(change.toolCallId, bounded);
     // The completed diff replaces the call's proposal.
-    this.deleteProposal(batch, change.toolCallId);
+    const replaced = this.deleteProposal(batch, change.toolCallId);
     this.redraw(batch);
-    this.notify();
+    // A Change alone never changes the snapshot; only a replaced proposal does.
+    if (replaced) this.notify();
   }
 
   /** Record a nested call's pre-approval preview; only nested calls are accepted. */
@@ -76,7 +77,15 @@ export class Capture {
     this.notify();
   }
 
-  /** A nested call ended without error: drop any proposal it did not replace. */
+  /**
+   * A nested call ended without error: drop any proposal it did not replace.
+   *
+   * Defensive: with stock Pi a successful nested edit records its Change in
+   * tool_result and a successful nested write records its Change inside the
+   * write tool, both before tool_execution_end, and add() already replaced the
+   * proposal. settle() matters when another extension flips isError from true
+   * to false, or when our own tool_result handling failed.
+   */
   settle(id: string): void {
     const rootId = this.rootFor(id);
     const batch = rootId ? this.batches.get(rootId) : undefined;
@@ -150,7 +159,7 @@ export class Capture {
 
   private notify(): void {
     try {
-      this.onProposalsChange?.();
+      this.onProposalsChange?.(this.allProposals());
     } catch {
       // A consumer must never affect the tool pipeline.
     }

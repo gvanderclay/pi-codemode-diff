@@ -162,6 +162,19 @@ test("capture ignores proposals for direct calls and drops them on clear", () =>
   assert.deepEqual(nested.proposals("root"), []);
 });
 
+test("capture notifies proposal listeners only when a completed diff replaces a proposal", () => {
+  const capture = nestedCapture("root/1", "root/2");
+  const snapshots: Proposal[][] = [];
+  capture.onProposalsChange = proposals => { snapshots.push(proposals); };
+  capture.add({ toolCallId: "root/1", tool: "edit", path: "a.ts", kind: "edit", diff: "-1 a\n+1 b" });
+  assert.equal(snapshots.length, 0, "A Change without a proposal cannot change the snapshot");
+  capture.propose(editProposal("root/2", { path: "b.ts", edits: [{ oldText: "c", newText: "d" }] }, prepare));
+  assert.equal(snapshots.length, 1);
+  capture.add({ toolCallId: "root/2", tool: "edit", path: "b.ts", kind: "edit", diff: "-1 c\n+1 d" });
+  assert.equal(snapshots.length, 2, "The replaced proposal is published once");
+  assert.deepEqual(snapshots.at(-1), []);
+});
+
 test("the per-root proposal budget is independent of the completed-diff budget", () => {
   const ids = Array.from({ length: 6 }, (_, i) => "root/" + (i + 1));
   const capture = nestedCapture(...ids);

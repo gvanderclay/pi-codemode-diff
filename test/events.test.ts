@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import extension from "../src/index.ts";
-import { MAX_EVENT_PREVIEW_BYTES, MAX_EVENT_PREVIEW_LINES, PROPOSALS_EVENT, type ProposalsEvent } from "../src/events.ts";
+import { MAX_EVENT_PREVIEW_BYTES, MAX_EVENT_PREVIEW_LINES, PROPOSALS_EVENT, proposalsPublisher, type ProposalsEvent } from "../src/events.ts";
+import type { Proposal } from "../src/proposals.ts";
 import { runtimeFixture } from "./runtime-fixture.ts";
 
 type Event = Record<string, unknown>;
@@ -122,6 +123,25 @@ test("a throwing consumer never affects the tool pipeline", async () => {
     { type: "tool_execution_start", toolCallId: "root/1", toolName: "edit", parentToolCallId: "root", args: edit("a", "b") },
     { type: "agent_end" },
   ]) for (const handler of handlers.get(event.type) ?? []) await handler(event);
+});
+
+test("proposalsPublisher emits only changed snapshots and never throws", () => {
+  const emitted: ProposalsEvent[] = [];
+  const publish = proposalsPublisher(event => { emitted.push(event); });
+  const proposal: Proposal = { toolCallId: "root/1", tool: "edit", path: "a.ts", status: "pending", diff: "- a\n+ b" };
+  publish([]);
+  assert.equal(emitted.length, 0, "The empty snapshot is the starting point");
+  publish([proposal]);
+  assert.equal(emitted.length, 1);
+  assert.deepEqual(emitted[0].proposals.map(p => p.toolCallId), ["root/1"]);
+  publish([{ ...proposal }]);
+  assert.equal(emitted.length, 1, "An identical list is not re-emitted");
+  publish([]);
+  assert.equal(emitted.length, 2);
+  publish([]);
+  assert.equal(emitted.length, 2);
+  const throwing = proposalsPublisher(() => { throw new Error("consumer bug"); });
+  assert.doesNotThrow(() => throwing([proposal]));
 });
 
 test("real Pi: the snapshot holds the proposal when a tool_call gate handler starts", { timeout: 30_000 }, async t => {

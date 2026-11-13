@@ -52,3 +52,22 @@ export function proposalsEvent(proposals: readonly Proposal[]): ProposalsEvent {
     })),
   };
 }
+
+/**
+ * Returns a listener that emits a proposals snapshot only when it differs from
+ * the last one emitted (starting from the empty snapshot). Never throws.
+ */
+export function proposalsPublisher(emit: (event: ProposalsEvent) => void): (proposals: readonly Proposal[]) => void {
+  let lastSnapshot = JSON.stringify(proposalsEvent([]));
+  return (proposals) => {
+    try {
+      const event = proposalsEvent(proposals);
+      const snapshot = JSON.stringify(event);
+      if (snapshot === lastSnapshot) return;
+      lastSnapshot = snapshot;
+      emit(event);
+    } catch {
+      // Never throw into the tool pipeline.
+    }
+  };
+}
