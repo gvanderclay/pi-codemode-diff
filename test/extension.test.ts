@@ -7,7 +7,7 @@ import type { ExtensionAPI, ExtensionToolContext, Theme, ToolDefinition, ToolRen
 import { Text } from "@earendil-works/pi-tui";
 import extension from "../src/index.ts";
 import { DETAILS_KEY, readChanges } from "../src/changes.ts";
-import { keybindingHints } from "./render-context.ts";
+import { renderContext } from "./render-context.ts";
 
 type Event = Record<string, unknown>;
 type Handler = (event: Event) => unknown;
@@ -286,11 +286,7 @@ test("nested edit/write starts create live proposals that lifecycle events drop"
   type Render = NonNullable<ToolRenderers["renderResult"]>;
   const render = host.getRenderer()("codemode", () => ({ renderResult: () => new Text("running", 0, 0) }))!.renderResult as Render;
   const theme = { fg: (_: string, value: string) => value, bold: (value: string) => value, inverse: (value: string) => value } as unknown as Theme;
-  const context = {
-    durationMs: undefined, outputPad: 0, args: {}, toolCallId: "root", invalidate() {}, lastComponent: undefined,
-    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
-    expanded: true, showImages: true, isError: false,
-  } as Parameters<Render>[3];
+  const context = renderContext({ isPartial: true, expanded: true });
   const view = () => render({ content: [], details: {} }, { expanded: true, isPartial: true }, theme, context).render(100).join("\n");
   for (const type of ["agent_end", "session_start", "session_shutdown"]) {
     await host.start("root", "codemode");
@@ -318,11 +314,7 @@ test("an errored nested call shows the unverified label and its sanitized, trunc
   type Render = NonNullable<ToolRenderers["renderResult"]>;
   const render = host.getRenderer()("codemode", () => ({ renderResult: () => new Text("running", 0, 0) }))!.renderResult as Render;
   const theme = { fg: (_: string, value: string) => value, bold: (value: string) => value, inverse: (value: string) => value } as unknown as Theme;
-  const context = {
-    durationMs: undefined, outputPad: 0, args: {}, toolCallId: "root", invalidate() {}, lastComponent: undefined,
-    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
-    expanded: true, showImages: true, isError: false,
-  } as Parameters<Render>[3];
+  const context = renderContext({ isPartial: true, expanded: true });
   await host.start("root", "codemode");
   await host.emit({ type: "tool_execution_start", toolCallId: "root/1", toolName: "edit", parentToolCallId: "root",
     args: { path: "a.ts", edits: [{ oldText: "one", newText: "two" }] } });

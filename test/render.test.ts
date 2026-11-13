@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ExtensionAPI, Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
-import { Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import { Container, Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { Capture } from "../src/capture.ts";
-import { DETAILS_KEY, limitChange, type Change } from "../src/changes.ts";
+import { DETAILS_KEY, limitChange, writeChange, type Change } from "../src/changes.ts";
 import { MAX_DIFF_BYTES } from "../src/limits.ts";
-import { diffSection, PREVIEW_CHANGES, PREVIEW_LINES, registerDiffRenderer } from "../src/render.ts";
-import { expandKey, keybindingHints } from "./render-context.ts";
+import type { Proposal } from "../src/proposals.ts";
+import { countChanges, diffSection, PREVIEW_CHANGES, PREVIEW_LINES, proposalSection, registerDiffRenderer, SectionMemo } from "../src/render.ts";
+import { expandKey, renderContext } from "./render-context.ts";
 
 const theme = {
   fg: (_token: string, text: string) => text,
@@ -21,6 +22,79 @@ function change(id: string, diff = Array.from({ length: 30 }, (_, i) => `+${i + 
 function text(component: Component, width = 80): string {
   return component.render(width).join("\n");
 }
+
+test("numbered display diffs count additions and removals, not patch headers", () => {
+  const created = writeChange("a/1", "new.ts", { kind: "missing" }, "one\ntwo\n");
+  assert.deepEqual(countChanges(created.diff!), { added: 2, removed: 0 });
+  const overwritten = writeChange("a/1", "a", { kind: "text", content: "before\n" }, "after\n");
+  assert.deepEqual(countChanges(overwritten.diff!), { added: 1, removed: 1 });
+  assert.deepEqual(countChanges("--- a\n+++ b\n-1 old\n+1 new\n 2 context"), { added: 1, removed: 1 });
+});
+
+test("SectionMemo reuses a section for identical inputs and new arrays of the same elements", () => {
+  const memo = new SectionMemo<Change>();
+  const items = [change("a"), change("b")];
+  let builds = 0;
+  const build = (rows: readonly Change[], expanded: boolean, currentTheme: Theme, key: string) => {
+    builds++;
+    assert.strictEqual(rows, items);
+    assert.equal(expanded, false);
+    assert.strictEqual(currentTheme, theme);
+    assert.equal(key, expandKey);
+    return new Container();
+  };
+  const section = memo.get(items, false, theme, expandKey, build);
+  assert.strictEqual(memo.get(items, false, theme, expandKey, build), section);
+  assert.strictEqual(memo.get([...items], false, theme, expandKey, build), section);
+  assert.equal(builds, 1);
+});
+
+for (const key of ["element", "length", "order", "expanded", "theme", "expandKey"] as const) {
+  test("SectionMemo rebuilds when " + key + " changes", () => {
+    const memo = new SectionMemo<Change>();
+    const items = [change("a"), change("b")];
+    let builds = 0;
+    const build = () => { builds++; return new Container(); };
+    const section = memo.get(items, false, theme, expandKey, build);
+    const nextItems = key === "element" ? [change("a"), items[1]]
+      : key === "length" ? items.slice(0, 1)
+      : key === "order" ? [items[1], items[0]] : items;
+    const nextTheme = key === "theme" ? { ...theme } as Theme : theme;
+    const nextKey = key === "expandKey" ? "alt+o" : expandKey;
+    const rebuilt = memo.get(nextItems, key === "expanded", nextTheme, nextKey, build);
+    assert.notStrictEqual(rebuilt, section);
+    assert.strictEqual(memo.get([...nextItems], key === "expanded", nextTheme, nextKey, build), rebuilt);
+    assert.equal(builds, 2);
+  });
+}
+
+test("SectionMemo clear forgets its cached section", () => {
+  const memo = new SectionMemo<Change>();
+  const items: Change[] = [];
+  let builds = 0;
+  const build = () => { builds++; return new Container(); };
+  const section = memo.get(items, false, theme, expandKey, build);
+  memo.clear();
+  memo.clear();
+  assert.notStrictEqual(memo.get(items, false, theme, expandKey, build), section);
+  assert.equal(builds, 2);
+});
+
+test("proposal summaries count distinct paths and collapsed trailers name proposed changes", () => {
+  const proposals: Proposal[] = ["same.ts", "same.ts", "other.ts"].map((path, i) => ({
+    toolCallId: String(i), tool: "edit", path, status: "pending",
+  }));
+  for (const expanded of [false, true]) {
+    const output = text(proposalSection(proposals, expanded, theme, expandKey));
+    assert.match(output, /Proposed changes \(3\) · 2 files/);
+    assert.doesNotMatch(output, /diffs? unavailable/);
+  }
+  const many = Array.from({ length: PREVIEW_CHANGES + 2 }, (_, i) => ({ ...proposals[0], toolCallId: String(i) }));
+  const collapsed = text(proposalSection(many, false, theme, expandKey));
+  assert.match(collapsed, /Proposed changes \(5\) · 1 file/);
+  assert.match(collapsed, /… \(2 more proposed changes,/);
+  assert.doesNotMatch(text(proposalSection(many, true, theme, expandKey)), /more proposed changes/);
+});
 
 test("collapsed previews are bounded; full view retains all changes and lines", () => {
   const changes = Array.from({ length: PREVIEW_CHANGES + 2 }, (_, i) => change(`call-${i}`));
@@ -165,13 +239,7 @@ for (const rootTool of ["codemode"]) test(`${rootTool}: original result renderin
   const wrapped = resolver!(rootTool, () => base)!;
   const render = wrapped.renderResult!;
   const result = { content: [{ type: "text" as const, text: "model output" }], details: { calls: [], [DETAILS_KEY]: { version: 1, changes: [change("a")] } } };
-  type Context = Parameters<typeof render>[3];
-  const context: Context = {
-    durationMs: undefined, outputPad: 0,
-    args: { code: "..." }, toolCallId: "root", invalidate() {}, lastComponent: undefined,
-    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: false,
-    expanded: false, showImages: true, isError: false,
-  };
+  const context = renderContext({ args: { code: "..." } });
   const preview = render(result, { expanded: false, isPartial: false }, theme, context);
   assert.match(text(preview), /ORIGINAL OUTPUT/);
   const full = render(result, { expanded: true, isPartial: false }, theme, { ...context, expanded: true, lastComponent: preview });
@@ -193,12 +261,7 @@ for (const rootTool of ["codemode"]) test(`${rootTool}: live partial results red
   let invalidated = 0;
   capture.start("root", rootTool);
   capture.start("root/1", "edit", "root");
-  const context: Parameters<typeof render>[3] = {
-    durationMs: undefined, outputPad: 0,
-    args: {}, toolCallId: "root", invalidate() { invalidated++; }, lastComponent: undefined,
-    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
-    expanded: false, showImages: true, isError: false,
-  };
+  const context = renderContext({ invalidate() { invalidated++; }, isPartial: true });
   render({ content: [], details: {} }, { expanded: false, isPartial: true }, theme, context);
   capture.add(change("root/1"));
   assert.equal(invalidated, 1);
@@ -224,13 +287,10 @@ test("host keybindings reach all diff and proposal hints, including cached rows 
   const changes = Array.from({ length: PREVIEW_CHANGES + 1 }, (_, i) => change(`done-${i}`));
   const result = { content: [], details: { [DETAILS_KEY]: { version: 1, changes } } };
   let binding = expandKey;
-  const context: Parameters<typeof render>[3] = {
-    ...keybindingHints,
+  const context = renderContext({
     keyText(action) { assert.equal(action, "app.tools.expand"); return binding; },
-    durationMs: undefined, outputPad: 0, args: {}, toolCallId: "root", invalidate() {},
-    lastComponent: undefined, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true,
-    isPartial: true, expanded: false, showImages: true, isError: false,
-  };
+    isPartial: true,
+  });
   let component: Component | undefined;
   // Same keyText function and same changes/proposals: cached sections must still
   // update when the host reports a different binding (or disables the action).

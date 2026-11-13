@@ -7,7 +7,7 @@ import { DETAILS_KEY, readChanges } from "../src/changes.ts";
 import { MAX_BATCH_DIFF_LINES, MAX_DIFF_BYTES, MAX_DIFF_LINES } from "../src/limits.ts";
 import { editProposal, MAX_PROPOSAL_INPUT_BYTES, writeProposal, type Proposal } from "../src/proposals.ts";
 import { PREVIEW_CHANGES, proposalSection, registerDiffRenderer } from "../src/render.ts";
-import { expandKey, keybindingHints } from "./render-context.ts";
+import { expandKey, renderContext } from "./render-context.ts";
 
 const theme = {
   fg: (_token: string, text: string) => text,
@@ -214,12 +214,7 @@ test("the wrapped card shows proposals only while partial and never from saved d
   registerDiffRenderer({ registerToolRenderer(value: typeof resolver) { resolver = value; } } as unknown as ExtensionAPI, capture);
   const render = resolver!("codemode", () => ({ renderResult: () => new Text("running", 0, 0) }))!.renderResult!;
   let invalidated = 0;
-  const context: Parameters<typeof render>[3] = {
-    durationMs: undefined, outputPad: 0,
-    args: {}, toolCallId: "root", invalidate() { invalidated++; }, lastComponent: undefined,
-    ...keybindingHints, state: {}, cwd: "/tmp", executionStarted: true, argsComplete: true, isPartial: true,
-    expanded: false, showImages: true, isError: false,
-  };
+  const context = renderContext({ invalidate() { invalidated++; }, isPartial: true });
   const first = render({ content: [], details: {} }, { expanded: false, isPartial: true }, theme, context);
   assert.doesNotMatch(text(first), /Proposed/);
   capture.propose(editProposal("root/1", { path: "a.ts", edits: [{ oldText: "old", newText: "new" }] }, prepare));

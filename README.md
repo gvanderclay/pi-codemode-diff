@@ -43,7 +43,7 @@ The original tool still renders its script, output, warnings and duration. Its r
 When a nested `edit` or `write` starts, the live codemode card shows a separate **Proposed changes** section built from the call's arguments. Pi emits the nested `tool_execution_start` event, and waits for it, before any `tool_call` handler runs. The preview is therefore built, and a redraw requested, before permission handlers run, in either extension load order. It is rendered while an interactive approval prompt (for example `@gotgenes/pi-permission-system`'s `ask` dialog) waits, provided the card fits in the terminal above the prompt. Ctrl+O expands it with the rest of the tool output.
 
 ```diff
-Proposed changes (1)
+Proposed changes (1) · 1 file
 
 src/main.ts [edit · proposed] +1 -1
 Preview built from the call's arguments without reading the file; not applied yet.

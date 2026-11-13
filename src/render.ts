@@ -6,7 +6,7 @@ import {
 import { Container, Spacer, Text, truncateToWidth, type Component } from "@earendil-works/pi-tui";
 import { isCodemodeTool } from "./tools.ts";
 import type { Capture } from "./capture.ts";
-import { countChanges, readChanges, type Change } from "./changes.ts";
+import { readChanges, type Change } from "./changes.ts";
 import { coloredDiff } from "./diff.ts";
 import type { Proposal } from "./proposals.ts";
 import { inlineText, safeText } from "./text.ts";
@@ -46,44 +46,89 @@ class DiffPreview implements Component {
   }
 }
 
-export function diffSection(changes: readonly Change[], expanded: boolean, theme: Theme, expandKey: string): Container {
-  const section = new Container();
-  if (!changes.length) return section;
-  section.addChild(new Spacer(1));
-  // Count the whole batch, including changes hidden by the collapsed preview.
-  // Paths are compared as recorded; counting must not perform filesystem reads.
-  const files = new Set(changes.map(change => change.path)).size;
-  // An empty diff is available (e.g. an unchanged write), not missing.
-  const unavailable = changes.filter(change => change.diff === undefined).length;
-  const summary = `File changes (${changes.length}) · ${files} ${files === 1 ? "file" : "files"}` +
-    (unavailable ? ` · ${unavailable} ${unavailable === 1 ? "diff" : "diffs"} unavailable` : "");
-  section.addChild(new Text(theme.fg("toolTitle", theme.bold(summary)), 0, 0));
+interface Row {
+  path: string;
+  label: string;
+  counts?: { added: number; removed: number };
+  size?: { bytes: number; lines?: number };
+  lead: Array<{ color: "warning" | "muted"; text: string }>;
+  diff?: string;
+  note?: string;
+  trail: Array<{ color: "warning" | "muted"; text: string }>;
+}
 
-  const shown = expanded ? changes : changes.slice(0, PREVIEW_CHANGES);
-  for (const change of shown) {
+interface FileChangeListOptions {
+  title: "File changes" | "Proposed changes";
+  titleColor: "toolTitle" | "warning";
+  moreNoun: "changes" | "proposed changes";
+  unavailableCount: boolean;
+}
+
+function fileChangeList(rows: readonly Row[], options: FileChangeListOptions, expanded: boolean, theme: Theme, expandKey: string): Container {
+  const section = new Container();
+  if (!rows.length) return section;
+  section.addChild(new Spacer(1));
+  // Count the whole batch, including rows hidden by the collapsed preview.
+  // Paths are compared as recorded; counting must not perform filesystem reads.
+  const files = new Set(rows.map(row => row.path)).size;
+  // An empty diff is available (e.g. an unchanged write), not missing.
+  const unavailable = options.unavailableCount ? rows.filter(row => row.diff === undefined).length : 0;
+  const summary = `${options.title} (${rows.length}) · ${files} ${files === 1 ? "file" : "files"}` +
+    (unavailable ? ` · ${unavailable} ${unavailable === 1 ? "diff" : "diffs"} unavailable` : "");
+  section.addChild(new Text(theme.fg(options.titleColor, theme.bold(summary)), 0, 0));
+
+  const shown = expanded ? rows : rows.slice(0, PREVIEW_CHANGES);
+  for (const row of shown) {
     section.addChild(new Spacer(1));
-    const { added, removed } = countChanges(change.diff ?? "");
-    const label = change.kind === "create" ? "write · new" : change.kind === "overwrite" ? "write · overwrite" : change.tool;
-    const counts = change.diff === undefined ? "" : ` ${theme.fg("toolDiffAdded", `+${added}`)} ${theme.fg("toolDiffRemoved", `-${removed}`)}`;
-    const header = `${theme.fg("toolTitle", inlineText(change.path))} ${theme.fg("muted", `[${label}]`)}${counts}`;
+    const counts = row.counts === undefined ? "" : ` ${theme.fg("toolDiffAdded", `+${row.counts.added}`)} ${theme.fg("toolDiffRemoved", `-${row.counts.removed}`)}`;
+    const lines = row.size?.lines === undefined ? "" : ` · ${row.size.lines} ${row.size.lines === 1 ? "line" : "lines"}`;
+    const size = row.size === undefined ? "" : " " + theme.fg("muted", row.size.bytes + " bytes" + lines);
+    const header = theme.fg("toolTitle", inlineText(row.path)) + " " + theme.fg("muted", "[" + row.label + "]") + counts + size;
     section.addChild(new Text(header, 0, 0));
-    if (change.diff) {
-      const styled = coloredDiff(safeText(change.diff), theme);
+    for (const line of row.lead) section.addChild(new Text(theme.fg(line.color, inlineText(line.text)), 0, 0));
+    if (row.diff) {
+      const styled = coloredDiff(safeText(row.diff), theme);
       section.addChild(expanded ? new Text(styled, 0, 0) : new DiffPreview(styled, theme, expandKey));
     }
-    if (change.note) section.addChild(new Text(theme.fg("muted", inlineText(change.note)), 0, 0));
-    if (change.toolReportedError) {
-      section.addChild(new Text(theme.fg("warning", "File change observed, but the tool reported an error or cancellation."), 0, 0));
-    }
+    if (row.note) section.addChild(new Text(theme.fg("muted", inlineText(row.note)), 0, 0));
+    for (const line of row.trail) section.addChild(new Text(theme.fg(line.color, inlineText(line.text)), 0, 0));
   }
-  if (shown.length < changes.length) {
+  if (shown.length < rows.length) {
     section.addChild(new Text(
-      `${theme.fg("muted", `… (${changes.length - shown.length} more changes,`)} ${expandHint(theme, expandKey)}${theme.fg("muted", ")")}`,
+      `${theme.fg("muted", `… (${rows.length - shown.length} more ${options.moreNoun},`)} ${expandHint(theme, expandKey)}${theme.fg("muted", ")")}`,
       0,
       0,
     ));
   }
   return section;
+}
+
+export function countChanges(diff: string): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  // Pi's display diff uses +<line number> / -<line number>, not patch headers.
+  for (const line of diff.split("\n")) {
+    if (/^\+\s*\d+ /.test(line)) added++;
+    if (/^-\s*\d+ /.test(line)) removed++;
+  }
+  return { added, removed };
+}
+
+export function diffSection(changes: readonly Change[], expanded: boolean, theme: Theme, expandKey: string): Container {
+  const rows = changes.map((change): Row => ({
+    path: change.path,
+    label: change.kind === "create" ? "write · new" : change.kind === "overwrite" ? "write · overwrite" : change.tool,
+    counts: change.diff === undefined ? undefined : countChanges(change.diff),
+    lead: [],
+    diff: change.diff,
+    note: change.note,
+    trail: change.toolReportedError
+      ? [{ color: "warning", text: "File change observed, but the tool reported an error or cancellation." }]
+      : [],
+  }));
+  return fileChangeList(rows, {
+    title: "File changes", titleColor: "toolTitle", moreNoun: "changes", unavailableCount: true,
+  }, expanded, theme, expandKey);
 }
 
 /**
@@ -91,94 +136,71 @@ export function diffSection(changes: readonly Change[], expanded: boolean, theme
  * applied: the text has not been matched against the file.
  */
 export function proposalSection(proposals: readonly Proposal[], expanded: boolean, theme: Theme, expandKey: string): Container {
-  const section = new Container();
-  if (!proposals.length) return section;
-  section.addChild(new Spacer(1));
-  section.addChild(new Text(theme.fg("warning", theme.bold("Proposed changes (" + proposals.length + ")")), 0, 0));
   // The calls awaiting approval or execution matter most: list them first.
   const ordered = [
     ...proposals.filter(proposal => proposal.status === "pending"),
     ...proposals.filter(proposal => proposal.status !== "pending"),
   ];
-  const shown = expanded ? ordered : ordered.slice(0, PREVIEW_CHANGES);
-  for (const proposal of shown) {
-    section.addChild(new Spacer(1));
-    const label = proposal.tool === "write" ? "write · proposed content" : "edit · proposed";
-    const counts = proposal.tool === "edit" && proposal.added !== undefined
-      ? " " + theme.fg("toolDiffAdded", "+" + proposal.added) + " " + theme.fg("toolDiffRemoved", "-" + (proposal.removed ?? 0))
-      : "";
-    const lines = proposal.lines === undefined ? "" : " · " + proposal.lines + (proposal.lines === 1 ? " line" : " lines");
-    const size = proposal.bytes === undefined ? "" : " " + theme.fg("muted", proposal.bytes + " bytes" + lines);
-    section.addChild(new Text(theme.fg("toolTitle", inlineText(proposal.path)) + " " + theme.fg("muted", "[" + label + "]") + counts + size, 0, 0));
-    if (proposal.status === "unverified") {
-      // An error can follow a write; it does not prove the file is unchanged.
-      section.addChild(new Text(theme.fg("warning", "Did not complete — changes not verified."), 0, 0));
-      if (proposal.error) section.addChild(new Text(theme.fg("muted", "Error: " + inlineText(proposal.error)), 0, 0));
-    } else {
-      section.addChild(new Text(theme.fg("muted", "Preview built from the call's arguments without reading the file; not applied yet."), 0, 0));
-    }
-    if (proposal.diff) {
-      const styled = coloredDiff(safeText(proposal.diff), theme);
-      section.addChild(expanded ? new Text(styled, 0, 0) : new DiffPreview(styled, theme, expandKey));
-    }
-    if (proposal.note) section.addChild(new Text(theme.fg("muted", inlineText(proposal.note)), 0, 0));
-  }
-  if (shown.length < ordered.length) {
-    section.addChild(new Text(
-      theme.fg("muted", "… (" + (ordered.length - shown.length) + " more proposed,") + " " + expandHint(theme, expandKey) + theme.fg("muted", ")"),
-      0,
-      0,
-    ));
-  }
-  return section;
+  const rows = ordered.map((proposal): Row => ({
+    path: proposal.path,
+    label: proposal.tool === "write" ? "write · proposed content" : "edit · proposed",
+    counts: proposal.tool === "edit" && proposal.added !== undefined
+      ? { added: proposal.added, removed: proposal.removed ?? 0 }
+      : undefined,
+    size: proposal.bytes === undefined ? undefined : { bytes: proposal.bytes, lines: proposal.lines },
+    // An error can follow a write; it does not prove the file is unchanged.
+    lead: proposal.status === "unverified"
+      ? [
+        { color: "warning", text: "Did not complete — changes not verified." },
+        ...(proposal.error ? [{ color: "muted" as const, text: "Error: " + proposal.error }] : []),
+      ]
+      : [{ color: "muted", text: "Preview built from the call's arguments without reading the file; not applied yet." }],
+    diff: proposal.diff,
+    note: proposal.note,
+    trail: [],
+  }));
+  return fileChangeList(rows, {
+    title: "Proposed changes", titleColor: "warning", moreNoun: "proposed changes", unavailableCount: false,
+  }, expanded, theme, expandKey);
 }
 
-function sameItems<T>(a: readonly T[] | undefined, b: readonly T[]): boolean {
-  return a?.length === b.length && b.every((item, i) => item === a[i]);
+export class SectionMemo<T> {
+  private cached?: {
+    items: readonly T[];
+    expanded: boolean;
+    theme: Theme;
+    expandKey: string;
+    section: Container;
+  };
+
+  get(
+    items: readonly T[], expanded: boolean, theme: Theme, expandKey: string,
+    build: (items: readonly T[], expanded: boolean, theme: Theme, expandKey: string) => Container,
+  ): Container {
+    const cached = this.cached;
+    if (cached && cached.items.length === items.length && items.every((item, i) => item === cached.items[i]) &&
+        cached.expanded === expanded && cached.theme === theme && cached.expandKey === expandKey) {
+      return cached.section;
+    }
+    const section = build(items, expanded, theme, expandKey);
+    this.cached = { items: [...items], expanded, theme, expandKey, section };
+    return section;
+  }
+
+  clear(): void {
+    this.cached = undefined;
+  }
 }
 
 class WrappedResult extends Container {
   baseComponent?: Component;
-  private changes?: readonly Change[];
-  private expanded?: boolean;
-  private theme?: Theme;
-  private section?: Container;
-  private proposals?: readonly Proposal[];
-  private proposalExpanded?: boolean;
-  private proposalTheme?: Theme;
-  private pending?: Container;
-  private expandKey?: string;
-  private proposalExpandKey?: string;
-
-  getProposalSection(proposals: readonly Proposal[], expanded: boolean, theme: Theme, expandKey: string): Container {
-    if (!this.pending || !sameItems(this.proposals, proposals) || this.proposalExpanded !== expanded || this.proposalTheme !== theme || this.proposalExpandKey !== expandKey) {
-      this.pending = proposalSection(proposals, expanded, theme, expandKey);
-      this.proposalExpandKey = expandKey;
-      this.proposals = proposals;
-      this.proposalExpanded = expanded;
-      this.proposalTheme = theme;
-    }
-    return this.pending;
-  }
-
-  getSection(changes: readonly Change[], expanded: boolean, theme: Theme, expandKey: string): Container {
-    const sameChanges = this.changes?.length === changes.length && changes.every((item, i) => item === this.changes?.[i]);
-    if (!this.section || !sameChanges || this.expanded !== expanded || this.theme !== theme || this.expandKey !== expandKey) {
-      this.section = diffSection(changes, expanded, theme, expandKey);
-      this.expandKey = expandKey;
-      this.changes = changes;
-      this.expanded = expanded;
-      this.theme = theme;
-    }
-    return this.section;
-  }
+  changes = new SectionMemo<Change>();
+  proposals = new SectionMemo<Proposal>();
 
   override invalidate(): void {
     super.invalidate();
-    this.section = undefined;
-    this.changes = undefined;
-    this.pending = undefined;
-    this.proposals = undefined;
+    this.changes.clear();
+    this.proposals.clear();
   }
 }
 
@@ -201,12 +223,13 @@ export function registerDiffRenderer(pi: ExtensionAPI, capture: Capture): void {
         component.clear();
         component.addChild(component.baseComponent);
         capture.watch(context.toolCallId, context.invalidate);
+        // Persisted details are authoritative once the root call has a result; the capture covers live partial results.
         const changes = readChanges(result.details) ?? capture.changes(context.toolCallId);
         const expandKey = context.keyText("app.tools.expand");
-        component.addChild(component.getSection(changes, options.expanded, theme, expandKey));
+        component.addChild(component.changes.get(changes, options.expanded, theme, expandKey, diffSection));
         // Proposals are live-only: never read from (or written to) result details.
         const proposals = options.isPartial ? capture.proposals(context.toolCallId) : [];
-        component.addChild(component.getProposalSection(proposals, options.expanded, theme, expandKey));
+        component.addChild(component.proposals.get(proposals, options.expanded, theme, expandKey, proposalSection));
         return component;
       },
     };

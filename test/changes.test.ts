@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Capture } from "../src/capture.ts";
-import { countChanges, DETAILS_KEY, readChanges, writeChange, type Change } from "../src/changes.ts";
+import { DETAILS_KEY, readChanges, writeChange, type Change } from "../src/changes.ts";
 
 const edit = (id: string, path = "a.ts"): Change => ({
   toolCallId: id, tool: "edit", path, kind: "edit", diff: "-1 before\n+1 after",
@@ -64,13 +64,11 @@ test("UI invalidation failures do not prevent capture", () => {
 test("creates an all-added diff and treats empty creation as a real change", () => {
   const change = writeChange("a/1", "new.ts", { kind: "missing" }, "one\ntwo\n");
   assert.equal(change.kind, "create");
-  assert.deepEqual(countChanges(change.diff!), { added: 2, removed: 0 });
   assert.match(writeChange("a/2", "empty", { kind: "missing" }, "").note!, /empty file/);
 });
 
 test("overwrites use actual previous content, including unchanged writes", () => {
   const change = writeChange("a/1", "a", { kind: "text", content: "before\n" }, "after\n");
-  assert.deepEqual(countChanges(change.diff!), { added: 1, removed: 1 });
   assert.equal(change.kind, "overwrite");
   const same = writeChange("a/2", "a", { kind: "text", content: "same\n" }, "same\n");
   assert.equal(same.diff, "");
@@ -91,9 +89,8 @@ test("unavailable/binary snapshots do not masquerade as new files", () => {
   assert.match(writeChange("a/2", "a", { kind: "missing" }, "\0binary").note!, /Binary/);
 });
 
-test("rejects malformed persisted metadata and patch headers in counts", () => {
+test("rejects malformed persisted metadata", () => {
   assert.equal(readChanges(undefined), undefined);
   assert.equal(readChanges({ [DETAILS_KEY]: { version: 2, changes: [] } }), undefined);
   assert.equal(readChanges({ [DETAILS_KEY]: { version: 1, changes: [{ tool: "write" }] } }), undefined);
-  assert.deepEqual(countChanges("--- a\n+++ b\n-1 old\n+1 new\n 2 context"), { added: 1, removed: 1 });
 });

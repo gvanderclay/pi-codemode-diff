@@ -85,17 +85,6 @@ export function limitChange(
   return { ...metadata, note: `Diff omitted: ${reason}.${change.note ? ` ${change.note}` : ""}` };
 }
 
-export function countChanges(diff: string): { added: number; removed: number } {
-  let added = 0;
-  let removed = 0;
-  // Pi's display diff uses +<line number> / -<line number>, not patch headers.
-  for (const line of diff.split("\n")) {
-    if (/^\+\s*\d+ /.test(line)) added++;
-    if (/^-\s*\d+ /.test(line)) removed++;
-  }
-  return { added, removed };
-}
-
 export type BeforeWrite =
   | { kind: "missing" }
   | { kind: "text"; content: string }
