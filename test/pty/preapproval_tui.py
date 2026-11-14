@@ -141,7 +141,8 @@ def verify(args, model, root, name):
     (config / "config.json").write_text(json.dumps({"doublePressToConfirm": False, "permissionReviewLog": False, "permission": permission}))
     env = os.environ.copy()
     env.update(HOME=str(home), PI_CODING_AGENT_DIR=str(agent), PI_OFFLINE="1", PI_SKIP_VERSION_CHECK="1", TERM="xterm-256color", COLORTERM="truecolor")
-    cmd = [args.node, str(args.pi), "--offline", "--no-extensions", "-e", "builtin:codemode", "-e", str(REPO / "src/index.ts"),
+    # --no-approve: ignore project-local .pi config (and skip Pi 1.5's trust prompt) so the run stays hermetic.
+    cmd = [args.node, str(args.pi), "--offline", "--no-approve", "--no-extensions", "-e", "builtin:codemode", "-e", str(REPO / "src/index.ts"),
            "-e", str(args.permission_system), "--no-skills", "--no-prompt-templates", "--no-context-files",
            "--tools", "read,edit,write,codemode", "--model", "local/verify", "--session-dir", str(run / "sessions"),
            "Run the scripted check."]
