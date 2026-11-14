@@ -37,6 +37,11 @@ test("word highlighting matches native Pi edit for both built-in themes", (t) =>
     "-1 same content\n+1 same content",
     " 1 context\n-2 one\n-3 two\n+2 three\n+3 four\n     ...",
     "- 9 before\n+ 9 after\n 10 context",
+    // Insertions at the start of indented text (Pi 1.5.1 shared-indentation fix).
+    "-1     return value;\n+1     await return value;",
+    "-1   foo(bar);\n+1   baz foo(bar);",
+    "-1   x = 1\n+1   let x = 1",
+    "-1         if (a) {\n+1         } else if (a) {",
   ];
   for (const name of ["dark", "light"]) {
     initTheme(name, false);
@@ -58,6 +63,11 @@ test("standalone changes, multi-line blocks, and malformed diff lines keep line 
 test("indentation is not highlighted, and multiple single-line hunks are independent", () => {
   const input = "-1     before\n+1     after\n 2 context\n-3 old\n+3 new";
   assert.equal(coloredDiff(input, theme), `-1     ${inverse("before")}\n+1     ${inverse("after")}\n 2 context\n-3 ${inverse("old")}\n+3 ${inverse("new")}`);
+});
+
+test("an insertion at the start of indented text highlights only the inserted words", () => {
+  assert.equal(coloredDiff("-1     return value;\n+1     await return value;", theme),
+    `-1     return value;\n+1     ${inverse("await ")}return value;`);
 });
 
 test("the supplied theme controls line colors and changed-word styling", () => {

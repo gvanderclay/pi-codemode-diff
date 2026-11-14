@@ -17,14 +17,22 @@ function highlightWords(oldContent: string, newContent: string, theme: Theme): [
   // Bound pathological word comparisons on the synchronous TUI render path.
   // A comparison beyond this budget still gets normal added/removed line colors.
   if (oldContent.length + newContent.length > 40_000) return [oldContent, newContent];
+  // Like Pi's own diff view (1.5.1+): compare words after the indentation both
+  // lines share, so an insertion at the start of the text cannot pull that
+  // indentation into a changed part and defeat the reconstruction check below.
+  let indent = 0;
+  while (indent < oldContent.length && oldContent[indent] === newContent[indent] && /\s/.test(oldContent[indent])) indent++;
+  const shared = oldContent.slice(0, indent);
+  oldContent = oldContent.slice(indent);
+  newContent = newContent.slice(indent);
   const parts = diffWords(oldContent, newContent, { maxEditLength: 1_000 });
-  if (!parts) return [oldContent, newContent];
+  if (!parts) return [shared + oldContent, shared + newContent];
   // diffWords ignores whitespace differences and can use the new side's spacing
   // in shared parts. Never let word highlighting alter either displayed line.
   const reconstructedOld = parts.filter(part => !part.added).map(part => part.value).join("");
   const reconstructedNew = parts.filter(part => !part.removed).map(part => part.value).join("");
-  if (reconstructedOld !== oldContent || reconstructedNew !== newContent) return [oldContent, newContent];
-  const lines = ["", ""];
+  if (reconstructedOld !== oldContent || reconstructedNew !== newContent) return [shared + oldContent, shared + newContent];
+  const lines = [shared, shared];
   const firstChange = [true, true];
   for (const part of parts) {
     if (!part.removed && !part.added) {
