@@ -9,13 +9,6 @@ import { registerDiffRenderer } from "./render.ts";
 import { registerWriteCapture } from "./write.ts";
 
 export default function codemodeDiff(pi: ExtensionAPI): void {
-  if (typeof pi.registerToolRenderer !== "function") {
-    throw new Error("pi-codemode-diff requires Pi >=1.5.2: registerToolRenderer is unavailable. Update Pi and reload the extension.");
-  }
-  register(pi);
-}
-
-function register(pi: ExtensionAPI): void {
   const capture = new Capture();
   // Snapshot of every current proposal for other extensions; identical consecutive snapshots are skipped.
   capture.onProposalsChange = proposalsPublisher(event => pi.events?.emit(PROPOSALS_EVENT, event));
