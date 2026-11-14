@@ -10,7 +10,7 @@ import { registerWriteCapture } from "./write.ts";
 
 export default function codemodeDiff(pi: ExtensionAPI): void {
   if (typeof pi.registerToolRenderer !== "function") {
-    throw new Error("pi-codemode-diff requires Pi >=1.5.0: registerToolRenderer is unavailable. Update Pi and reload the extension.");
+    throw new Error("pi-codemode-diff requires Pi >=1.5.2: registerToolRenderer is unavailable. Update Pi and reload the extension.");
   }
   register(pi);
 }

@@ -42,13 +42,13 @@
     "test:coverage": "c8 --include=\"src/**/*.ts\" --reporter=text --reporter=json-summary npm test"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": ">=1.5.0",
+    "@earendil-works/pi-coding-agent": ">=1.5.2",
     "@earendil-works/pi-tui": ">=1.0.1"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "^1.5.0",
-    "@earendil-works/pi-coding-agent": "^1.5.0",
-    "@earendil-works/pi-tui": "^1.5.0",
+    "@earendil-works/pi-ai": "^1.5.2",
+    "@earendil-works/pi-coding-agent": "^1.5.2",
+    "@earendil-works/pi-tui": "^1.5.2",
     "@types/node": "^22.0.0",
     "c8": "^12.0.0",
     "chalk": "6.0.0",
