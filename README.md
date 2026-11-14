@@ -114,6 +114,8 @@ Binary, invalid UTF-8, nonregular and unreadable previous content produce notice
 
 ## Local development
 
+Domain terms used in the code and tests (codemode call, nested call, Change, Proposal, display budget, …) are defined in [GLOSSARY.md](GLOSSARY.md).
+
 From a full repository checkout:
 
 ```bash

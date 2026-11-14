@@ -42,7 +42,7 @@ test("the packed npm artifact contains only distributable files and loads throug
   const [artifact] = JSON.parse(stdout) as Array<{ filename: string; files: Array<{ path: string }> }>;
   const files = artifact.files.map(file => file.path);
   for (const required of [
-    "package.json", "README.md", "CHANGELOG.md", "LICENSE",
+    "package.json", "README.md", "CHANGELOG.md", "GLOSSARY.md", "LICENSE",
     "src/index.ts", "src/capture.ts", "src/changes.ts", "src/write.ts", "src/snapshot.ts", "src/render.ts",
     "src/diff.ts", "src/limits.ts", "src/budget.ts", "src/tools.ts",
     "src/proposals.ts", "src/events.ts", "src/lifecycle.ts", "src/text.ts",
@@ -50,7 +50,7 @@ test("the packed npm artifact contains only distributable files and loads throug
     assert.ok(files.includes(required), `${required} must be distributed`);
   }
   assert.ok(files.every(path => !/^(node_modules|test|coverage|native)\//.test(path) && !path.includes(".DS_Store")));
-  assert.ok(files.every(path => path.startsWith("src/") || ["package.json", "README.md", "CHANGELOG.md", "LICENSE"].includes(path)), JSON.stringify(files));
+  assert.ok(files.every(path => path.startsWith("src/") || ["package.json", "README.md", "CHANGELOG.md", "GLOSSARY.md", "LICENSE"].includes(path)), JSON.stringify(files));
   await exec("tar", ["-xzf", join(directory, artifact.filename), "-C", directory]);
   await checkDocumentation(join(directory, "package"), files);
   const personalHome = /\/(?:Users|home)\/[^/\s]+\/|[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s]+[\\/]+/i;

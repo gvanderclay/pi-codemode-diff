@@ -308,7 +308,7 @@ def main():
     model = Model()
     try:
         results = {
-            "host": {"pi": version(pi_package), "pi_cli_sha256": hashlib.sha256(args.pi.read_bytes()).hexdigest(),
+            "host": {"pi": version(pi_package), "pi_bundle_sha256": bundle_digest(args.pi.parent),
                      "pi_permission_system": version(args.permission_system), "window": f"{args.cols}x{args.rows}",
                      "screen_checks": f"pyte {version_of('pyte')} emulated current screen"},
             "scenarios": [verify(args, model, root, name) for name in SCENARIOS],
@@ -317,6 +317,15 @@ def main():
         print("Evidence:", root)
     finally:
         model.close()
+
+
+def bundle_digest(bundle):
+    # cli.js and cli-runtime.js are small launchers that barely change between
+    # releases; hash every bundle file so the record identifies the Pi build.
+    digest = hashlib.sha256()
+    for path in sorted(p for p in bundle.rglob("*") if p.is_file()):
+        digest.update(str(path.relative_to(bundle)).encode() + b"\0" + hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
 
 
 if __name__ == "__main__":

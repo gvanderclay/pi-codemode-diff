@@ -161,7 +161,7 @@ export function writeProposal(toolCallId: string, args: unknown): Proposal {
   return { ...base, ...size, diff: display };
 }
 
-export const MAX_ERROR_CHARS = 200;
+const MAX_ERROR_CHARS = 200;
 
 /** First non-empty line of a tool result's text blocks, truncated for display. */
 export function firstErrorLine(content: unknown): string | undefined {

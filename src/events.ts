@@ -36,7 +36,7 @@ function boundedPreview(diff: string): string {
   return cutLines(lines, MAX_EVENT_PREVIEW_BYTES, MAX_EVENT_PREVIEW_LINES, rest => `… ${rest} more lines`);
 }
 
-export function proposalsEvent(proposals: readonly Proposal[]): ProposalsEvent {
+function proposalsEvent(proposals: readonly Proposal[]): ProposalsEvent {
   return {
     version: 1,
     proposals: proposals.map(proposal => ({
