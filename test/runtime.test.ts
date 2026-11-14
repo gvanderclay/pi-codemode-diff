@@ -37,6 +37,28 @@ test("real Pi loads the extension and captures sandbox edit/write without changi
   assert.equal(fixture.session.messages.filter(message => message.role === "toolResult").length, 1, "Nested results must not become extra model tool messages");
 });
 
+test("the extension leaves the model's system prompt and tool declarations unchanged", options, async t => {
+  // What the model sees, with each fixture's temporary directory replaced so the two compare.
+  const modelFacing = (fixture: Awaited<ReturnType<typeof runtimeFixture>>) => {
+    const session = fixture.session;
+    const tools = session.getAllTools().filter(tool => session.getActiveToolNames().includes(tool.name)).map(tool => {
+      const definition = session.getToolDefinition(tool.name);
+      return {
+        name: tool.name,
+        description: definition?.description,
+        parameters: definition?.parameters,
+        promptSnippet: definition?.promptSnippet,
+        promptGuidelines: definition?.promptGuidelines,
+      };
+    });
+    return JSON.parse(JSON.stringify({ systemPrompt: session.systemPrompt, tools }).split(fixture.root).join("<root>"));
+  };
+  const withDiff = modelFacing(await runtimeFixture(t));
+  const without = modelFacing(await runtimeFixture(t, { withoutDiff: true }));
+  assert.ok(withDiff.tools.some((tool: { name: string }) => tool.name === "write"));
+  assert.deepEqual(withDiff, without);
+});
+
 test("real Pi direct edit/write preserve native metadata and do not acquire codemode diffs", options, async t => {
   const fixture = await runtimeFixture(t);
   await writeFile(join(fixture.cwd, "edit.txt"), "before\n");
