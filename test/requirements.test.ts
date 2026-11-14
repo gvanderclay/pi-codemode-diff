@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-test("host packages are "*" peers (Pi's packaging rule) and the dev lane pins the supported Pi", async () => {
+test("host packages are '*' peers (Pi's packaging rule) and the dev lane pins the supported Pi", async () => {
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const lock = JSON.parse(await readFile(new URL("../package-lock.json", import.meta.url), "utf8"));
   for (const [name, minimum] of Object.entries({
