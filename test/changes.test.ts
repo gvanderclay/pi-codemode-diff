@@ -93,4 +93,13 @@ test("rejects malformed persisted metadata", () => {
   assert.equal(readChanges(undefined), undefined);
   assert.equal(readChanges({ [DETAILS_KEY]: { version: 2, changes: [] } }), undefined);
   assert.equal(readChanges({ [DETAILS_KEY]: { version: 1, changes: [{ tool: "write" }] } }), undefined);
+  const valid = { toolCallId: "a/1", tool: "write", path: "a", kind: "overwrite", note: "Diff omitted." };
+  const persisted = (change: Record<string, unknown>) => ({ [DETAILS_KEY]: { version: 1, changes: [change] } });
+  assert.equal(readChanges(persisted({ ...valid, beforeBytes: 3, afterBytes: 0, toolReportedError: true }))?.length, 1);
+  for (const bad of [
+    { beforeBytes: -1 }, { beforeBytes: 1.5 }, { beforeBytes: "3" }, { afterBytes: Number.MAX_SAFE_INTEGER + 1 },
+    { toolReportedError: "yes" }, { kind: "rename" }, { diff: 1 }, { note: null },
+  ]) {
+    assert.equal(readChanges(persisted({ ...valid, ...bad })), undefined, JSON.stringify(bad));
+  }
 });

@@ -110,8 +110,12 @@ export function editProposal(toolCallId: string, args: unknown, prepare?: Prepar
   let inputBytes = 0;
   let inputLines = 0;
   for (const edit of edits) {
-    // UTF-8 bytes are never fewer than JS code units: reject long input cheaply.
-    inputBytes += edit.oldText.length + edit.newText.length;
+    // UTF-8 bytes are never fewer than JS code units: reject long input cheaply,
+    // and count exact bytes only for input that could still fit.
+    const units = edit.oldText.length + edit.newText.length;
+    inputBytes += units > MAX_PROPOSAL_INPUT_BYTES - inputBytes
+      ? units
+      : Buffer.byteLength(edit.oldText, "utf8") + Buffer.byteLength(edit.newText, "utf8");
     if (inputBytes > MAX_PROPOSAL_INPUT_BYTES) break;
     inputLines += lineCount(edit.oldText, MAX_PROPOSAL_INPUT_LINES) + lineCount(edit.newText, MAX_PROPOSAL_INPUT_LINES);
     if (inputLines > MAX_PROPOSAL_INPUT_LINES) break;

@@ -39,7 +39,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts",
-    "test:coverage": "c8 --include=\"src/**/*.ts\" --reporter=text --reporter=json-summary npm test"
+    "test:coverage": "c8 --check-coverage --lines 90 --branches 85 --functions 95 --include=\"src/**/*.ts\" --reporter=text --reporter=json-summary npm test"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": ">=1.5.2",

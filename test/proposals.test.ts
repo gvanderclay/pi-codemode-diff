@@ -5,7 +5,7 @@ import { Text, type Component } from "@earendil-works/pi-tui";
 import { Capture } from "../src/capture.ts";
 import { DETAILS_KEY, readChanges } from "../src/changes.ts";
 import { MAX_BATCH_DIFF_LINES, MAX_DIFF_BYTES, MAX_DIFF_LINES } from "../src/limits.ts";
-import { editProposal, MAX_PROPOSAL_INPUT_BYTES, writeProposal, type Proposal } from "../src/proposals.ts";
+import { editProposal, MAX_PROPOSAL_INPUT_BYTES, MAX_PROPOSAL_INPUT_LINES, writeProposal, type Proposal } from "../src/proposals.ts";
 import { PREVIEW_CHANGES, proposalSection, registerDiffRenderer } from "../src/render.ts";
 import { expandKey, renderContext } from "./render-context.ts";
 
@@ -107,6 +107,21 @@ test("write proposals show bounded proposed content and size only", () => {
   const rendered = text(proposalSection([proposal], true, theme, expandKey));
   assert.match(rendered, /\[write · proposed content\] 5 bytes · 2 lines/);
   assert.doesNotMatch(rendered, /overwrite|· new|create/);
+});
+
+test("replacement input over the line or UTF-8 byte budget is summarized, not diffed", () => {
+  const half = "x\n".repeat(MAX_PROPOSAL_INPUT_LINES / 2);
+  const fits = editProposal("root/1", { path: "a", edits: [{ oldText: half, newText: "y\n" }] }, prepare);
+  assert.doesNotMatch(fits.note ?? "", /replacement text too large/);
+  const lines = editProposal("root/1", { path: "a", edits: [{ oldText: half, newText: half + "z\n" }] }, prepare);
+  assert.equal(lines.diff, undefined);
+  assert.match(lines.note!, /^Preview omitted: replacement text too large \(1 replacement\)\.$/);
+  // Fewer JS characters than the budget, but more UTF-8 bytes (3 per character).
+  const wide = "가".repeat(Math.floor(MAX_PROPOSAL_INPUT_BYTES / 3) + 1);
+  assert.ok(wide.length < MAX_PROPOSAL_INPUT_BYTES);
+  const bytes = editProposal("root/1", { path: "a", edits: [{ oldText: wide, newText: "b" }] }, prepare);
+  assert.equal(bytes.diff, undefined);
+  assert.match(bytes.note!, /replacement text too large/);
 });
 
 test("proposal previews drop a leading UTF-8 BOM and normalize line endings", () => {
